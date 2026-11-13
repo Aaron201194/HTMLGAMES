@@ -1,5 +1,14 @@
 [
   {
+    "folder": "2048",
+    "files": [
+      "assets",
+      "css",
+      "index.html",
+      "src"
+    ]
+  },
+  {
     "folder": "angrybird",
     "files": [
       "g.html"
