@@ -1,5 +1,11 @@
 [
   {
+    "folder": "2048",
+    "files": [
+      "script.js"
+    ]
+  },
+  {
     "folder": "angrybird",
     "files": [
       "g.html"
