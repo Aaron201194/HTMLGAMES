@@ -220,7 +220,7 @@
                 if (match) return { file: match.orig, type: 'html' };
             }
             const anyHtml = lowerMap.find(f => f.low.endsWith('.html') || f.low.endsWith('.htm'));
-            if (anyHtml) return { file: anyHtml.orig, type: 'html' };
+            if (anyHtml) return { file: anyHtml.orig, type: 'web' };
 
             // Priority 2: Scratch, Flash, Pico-8, Love2D, Python, Lua, DOS/EXE, ROMs, JS
             const checks = [
@@ -232,7 +232,7 @@
                 { test: l => l.endsWith('.lua'), type: 'lua' },
                 { test: l => l.endsWith('.exe') || l.endsWith('.com') || l.endsWith('.bat'), type: 'exe' },
                 { test: l => Object.keys(ROM_CORES).some(ext => l.endsWith('.' + ext)), type: 'rom' },
-                { test: l => l.endsWith('.js'), type: 'js' }
+                { test: l => l.endsWith('.js'), type: 'javascript' }
             ];
 
             for (const rule of checks) {
