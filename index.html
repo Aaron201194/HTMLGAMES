@@ -174,7 +174,42 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Konami Arrow Sequence Easter Egg (Hold '\' + ↑ ↑ ↓ ↓ ← → ← →)
+const konamiArrows = [
+    'ArrowUp', 'ArrowUp',
+    'ArrowDown', 'ArrowDown',
+    'ArrowLeft', 'ArrowRight',
+    'ArrowLeft', 'ArrowRight'
+];
+let konamiIndex = 0;
+let backslashHeld = false;
 
+document.addEventListener('keydown', (e) => {
+    if (e.key === '\\' || e.code === 'Backslash') {
+        backslashHeld = true;
+        return;
+    }
+
+    if (!backslashHeld || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (e.key === konamiArrows[konamiIndex]) {
+        konamiIndex++;
+        if (konamiIndex === konamiArrows.length) {
+            konamiIndex = 0;
+            backslashHeld = false;
+            window.location.href = '/HTMLGAMES/test.html';
+        }
+    } else {
+        konamiIndex = (e.key === konamiArrows[0]) ? 1 : 0;
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    if (e.key === '\\' || e.code === 'Backslash') {
+        backslashHeld = false;
+        konamiIndex = 0;
+    }
+});
         // Global Variables
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'neon-arcade-v1';
         let firebaseConfig = {};
