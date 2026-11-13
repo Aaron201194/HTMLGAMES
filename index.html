@@ -190,9 +190,6 @@
         let unsubLikes = null;
         let unsubGlobalLikes = null;
 
-        // Game Directories to scan
-        const gameDirectories = ['cyber-racer', 'pixel-dungeon', 'neon-snake', 'space-defender', 'block-puzzle', 'jump-ninja'];
-
         // Initialization
         async function init() {
             if (Object.keys(firebaseConfig).length > 0) {
@@ -297,32 +294,54 @@
 
         async function fetchGamesData() {
             loadedGames = [];
-            for (const gameId of gameDirectories) {
-                try {
-                    // Try fetching actual files
-                    const response = await fetch(`/games/${gameId}/info.xml`);
-                    if (!response.ok) throw new Error('XML not found');
-                    const text = await response.text();
-                    
-                    const parser = new DOMParser();
-                    const xml = parser.parseFromString(text, "text/xml");
-                    
-                    const name = xml.getElementsByTagName("name")[0]?.textContent || gameId;
-                    const desc = xml.getElementsByTagName("desc")[0]?.textContent || "No description provided.";
-                    const auth = xml.getElementsByTagName("auth")[0]?.textContent || "Unknown Author";
-                    
-                    loadedGames.push({
-                        id: gameId,
-                        title: name,
-                        description: desc,
-                        author: auth,
-                        iconUrl: `/games/${gameId}/icon.png`,
-                        gameUrl: `/games/${gameId}/g.html`
-                    });
-                } catch (e) {
-                    // Fallback to mock data for preview environments where /games/ directory doesn't exist
-                    loadedGames.push(getMockFallback(gameId));
+            const githubApiUrl = 'https://api.github.com/repos/Aaron201194/HTMLGAMES/contents/games';
+            
+            try {
+                const apiResponse = await fetch(githubApiUrl);
+                if (!apiResponse.ok) throw new Error('Failed to fetch from GitHub API');
+                
+                const contents = await apiResponse.json();
+                // Filter only directories
+                const directories = contents.filter(item => item.type === 'dir');
+
+                for (const folder of directories) {
+                    const gameId = folder.name;
+                    try {
+                        const rawBaseUrl = `https://raw.githubusercontent.com/Aaron201194/HTMLGAMES/main/games/${gameId}`;
+                        const pagesBaseUrl = `https://aaron201194.github.io/HTMLGAMES/games/${gameId}`;
+                        
+                        // Fetch the info.xml file using the raw URL
+                        const xmlResponse = await fetch(`${rawBaseUrl}/info.xml`);
+                        if (!xmlResponse.ok) throw new Error('XML not found for ' + gameId);
+                        
+                        const text = await xmlResponse.text();
+                        
+                        const parser = new DOMParser();
+                        const xml = parser.parseFromString(text, "text/xml");
+                        
+                        const name = xml.getElementsByTagName("name")[0]?.textContent || gameId;
+                        const desc = xml.getElementsByTagName("desc")[0]?.textContent || "No description provided.";
+                        const auth = xml.getElementsByTagName("auth")[0]?.textContent || "Unknown Author";
+                        
+                        loadedGames.push({
+                            id: gameId,
+                            title: name,
+                            description: desc,
+                            author: auth,
+                            iconUrl: `${rawBaseUrl}/icon.png`,
+                            gameUrl: `${pagesBaseUrl}/g.html` // Playable GitHub Pages URL
+                        });
+                    } catch (e) {
+                        console.warn(`Could not load details for ${gameId}:`, e);
+                        // You can uncomment the line below if you want mock fallbacks for missing XMLs
+                        // loadedGames.push(getMockFallback(gameId));
+                    }
                 }
+            } catch (error) {
+                console.error("Error fetching games list from GitHub:", error);
+                // Fallback to mock data if GitHub API fails (e.g., rate limit)
+                const fallbackDirs = ['cyber-racer', 'pixel-dungeon', 'neon-snake'];
+                fallbackDirs.forEach(id => loadedGames.push(getMockFallback(id)));
             }
             renderGrid();
         }
