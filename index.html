@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Arcade - Web Game Browser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, .arcade-font {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .neon-text {
+            text-shadow: 0 0 5px #06b6d4, 0 0 10px #06b6d4;
+        }
+
+        .game-card {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        .game-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 10px 15px -3px rgba(6, 182, 212, 0.3), 0 4px 6px -2px rgba(6, 182, 212, 0.2);
+            border-color: #06b6d4;
+        }
+
+        /* Custom Scrollbar for Sidebar */
+        .sidebar-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+            background: #06b6d4; 
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="bg-slate-900 border-b border-slate-700 p-4 sticky top-0 z-30 shadow-lg">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-gamepad text-3xl text-cyan-400"></i>
+                <h1 class="text-2xl font-bold arcade-font tracking-wider neon-text text-cyan-400 hidden sm:block">NEON ARCADE</h1>
+                <button onclick="toggleFavoritesSidebar()" class="ml-2 sm:ml-4 bg-slate-800 hover:bg-slate-700 text-yellow-400 px-3 py-2 rounded-lg font-bold border border-slate-700 transition-colors flex items-center gap-2">
+                    <i class="fa-solid fa-star"></i> <span class="hidden sm:inline">Favorites</span>
+                </button>
+            </div>
+            <div class="text-sm font-medium text-slate-400" id="user-status">
+                Connecting...
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow p-6 max-w-7xl mx-auto w-full">
+        
+        <!-- Hero / Filters (Decorative) -->
+        <div class="mb-8 flex justify-between items-end">
+            <div>
+                <h2 class="text-3xl font-bold arcade-font mb-2">ALL GAMES</h2>
+                <p class="text-slate-400 text-sm">Select a game to view details and play.</p>
+            </div>
+        </div>
+
+        <!-- Game Grid -->
+        <div id="game-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            <!-- Games will be injected here -->
+        </div>
+
+    </main>
+
+    <!-- Left Favorites Sidebar -->
+    <div id="left-sidebar-overlay" class="fixed inset-0 bg-black/60 z-40 hidden transition-opacity opacity-0" onclick="toggleFavoritesSidebar()"></div>
+    
+    <div id="left-sidebar" class="fixed left-0 top-0 h-full w-full sm:w-80 bg-slate-800 border-r border-slate-700 z-50 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col shadow-2xl">
+        <div class="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900 shadow-md">
+            <h2 class="text-xl font-bold arcade-font text-yellow-400"><i class="fa-solid fa-star"></i> My Favorites</h2>
+            <button onclick="toggleFavoritesSidebar()" class="text-slate-400 hover:text-white transition-colors bg-slate-700 hover:bg-slate-600 rounded-full w-8 h-8 flex items-center justify-center">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+        <div class="flex-grow overflow-y-auto sidebar-scroll p-4 flex flex-col gap-4" id="favorites-list">
+            <!-- Favorited games injected here -->
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="fixed inset-0 bg-black/80 z-[60] hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+            <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors bg-slate-700 hover:bg-slate-600 rounded-full w-8 h-8 flex items-center justify-center">
+                <i class="fa-solid fa-times"></i>
+            </button>
+            <h2 class="text-2xl font-bold arcade-font text-cyan-400 mb-6 text-center">ACCESS TERMINAL</h2>
+            
+            <button onclick="loginWithGoogle()" class="w-full bg-white text-slate-900 font-bold py-3 rounded-xl mb-4 flex items-center justify-center gap-3 hover:bg-gray-200 transition-colors shadow-[0_0_10px_rgba(255,255,255,0.2)]">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google Logo" class="w-6 h-6"> Continue with Google
+            </button>
+            
+            <div class="flex items-center my-4">
+                <div class="flex-grow border-t border-slate-600"></div>
+                <span class="px-3 text-slate-400 text-sm font-bold tracking-wider">OR</span>
+                <div class="flex-grow border-t border-slate-600"></div>
+            </div>
+
+            <div class="flex flex-col gap-3">
+                <input type="email" id="auth-email" placeholder="Email Address" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-400 transition-colors">
+                <input type="password" id="auth-password" placeholder="Password" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-400 transition-colors">
+                <div class="flex gap-3 mt-2">
+                    <button onclick="loginWithEmail()" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-lg transition-colors">Log In</button>
+                    <button onclick="signupWithEmail()" class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white font-bold py-3 rounded-lg transition-colors">Sign Up</button>
+                </div>
+            </div>
+            <p id="auth-error" class="text-rose-500 text-sm mt-4 text-center font-bold hidden"></p>
+        </div>
+    </div>
+
+    <!-- Sidebar / Modal -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-40 hidden transition-opacity opacity-0" onclick="closeSidebar()"></div>
+    
+    <div id="sidebar" class="fixed right-0 top-0 h-full w-full sm:w-96 bg-slate-800 border-l border-slate-700 z-50 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col shadow-2xl">
+        <!-- Close Button -->
+        <button onclick="closeSidebar()" class="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-full w-8 h-8 flex items-center justify-center transition-colors">
+            <i class="fa-solid fa-times"></i>
+        </button>
+
+        <!-- Sidebar Content -->
+        <div class="flex-grow overflow-y-auto sidebar-scroll p-6 flex flex-col gap-6" id="sidebar-content">
+            <!-- Injected via JS -->
+        </div>
+    </div>
+
+    <!-- Game Player (Iframe Overlay) -->
+    <div id="game-player" class="fixed inset-0 bg-black z-[100] hidden flex-col">
+        <div class="bg-slate-900 border-b border-slate-700 p-3 flex justify-between items-center shadow-md">
+            <h3 id="player-title" class="text-xl font-bold arcade-font text-cyan-400 ml-2">Game Title</h3>
+            <button onclick="closeGame()" class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2">
+                <i class="fa-solid fa-right-from-bracket"></i> Close Game
+            </button>
+        </div>
+        <div class="flex-grow w-full relative bg-slate-950 flex items-center justify-center">
+            <!-- Placeholder if iframe blocked/empty -->
+            <div id="iframe-loading" class="absolute inset-0 flex items-center justify-center text-slate-500 arcade-font animate-pulse">
+                LOADING GAME ENGINE...
+            </div>
+            <iframe id="game-iframe" class="w-full h-full border-0 relative z-10 hidden" allowfullscreen></iframe>
+        </div>
+    </div>
+
+    <!-- Firebase & Application Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Variables
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'neon-arcade-v1';
+        let firebaseConfig = {};
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        } catch(e) { console.error("Firebase config error:", e); }
+
+        let app, db, auth;
+        let currentUser = null;
+        
+        // State
+        let globalLikes = {}; // gameId -> count
+        let userFavorites = {}; // gameId -> boolean
+        let userLikes = {}; // gameId -> boolean
+        let currentGameSelected = null;
+        let loadedGames = [];
+        let unsubFavorites = null;
+        let unsubLikes = null;
+        let unsubGlobalLikes = null;
+
+        // Game Directories to scan
+        const gameDirectories = ['cyber-racer', 'pixel-dungeon', 'neon-snake', 'space-defender', 'block-puzzle', 'jump-ninja'];
+
+        // Initialization
+        async function init() {
+            if (Object.keys(firebaseConfig).length > 0) {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setupAuthListener();
+                
+                try {
+                    const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                    if (token && !auth.currentUser) {
+                        await signInWithCustomToken(auth, token);
+                    }
+                } catch(e) { console.warn("Custom token auto-login skipped."); }
+            } else {
+                document.getElementById('user-status').innerHTML = '<span class="text-rose-500">Offline Mode (No Database)</span>';
+                await fetchGamesData(); // Render without DB
+            }
+        }
+
+        function setupAuthListener() {
+            onAuthStateChanged(auth, async (user) => {
+                currentUser = user;
+                
+                if (unsubFavorites) { unsubFavorites(); unsubFavorites = null; }
+                if (unsubLikes) { unsubLikes(); unsubLikes = null; }
+                
+                if (!user) {
+                     userFavorites = {};
+                     userLikes = {};
+                     document.getElementById('user-status').innerHTML = `
+                        <button onclick="openAuthModal()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-900 px-4 py-2 rounded-lg font-bold transition-colors shadow-[0_0_10px_rgba(6,182,212,0.3)]"><i class="fa-solid fa-right-to-bracket mr-1"></i> LOGIN</button>
+                    `;
+                    if (loadedGames.length === 0) await fetchGamesData();
+                    setupLikesListener();
+                    updateUIWithData();
+                    renderFavoritesSidebar(); // clear it
+                } else {
+                    let displayId = user.email ? user.email.split('@')[0] : (user.uid.substring(0, 6) + '...');
+                    document.getElementById('user-status').innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <span class="text-cyan-400 font-bold hidden md:inline"><i class="fa-solid fa-user-astronaut mr-2"></i>${displayId}</span>
+                            <button onclick="handleSignOut()" class="bg-slate-800 hover:bg-rose-600 text-white px-3 py-2 rounded-lg font-bold transition-colors border border-slate-700 flex items-center gap-2 shadow-[0_0_5px_rgba(0,0,0,0.5)]"><i class="fa-solid fa-power-off"></i><span class="hidden sm:inline">Logout</span></button>
+                        </div>
+                    `;
+                    closeAuthModal();
+                    
+                    if (loadedGames.length === 0) await fetchGamesData();
+                    setupLikesListener();
+                    setupFavoritesListener();
+                    setupUserLikesListener();
+                }
+            });
+        }
+
+        // --- AUTH FUNCTIONS ---
+        window.openAuthModal = function() {
+            document.getElementById('auth-modal').classList.remove('hidden');
+        }
+        window.closeAuthModal = function() {
+            document.getElementById('auth-modal').classList.add('hidden');
+            document.getElementById('auth-error').classList.add('hidden');
+        }
+        function showAuthError(msg) {
+            const err = document.getElementById('auth-error');
+            err.innerText = msg;
+            err.classList.remove('hidden');
+        }
+
+        window.loginWithGoogle = async function() {
+            try {
+                const provider = new GoogleAuthProvider();
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                showAuthError(error.message);
+            }
+        }
+        window.loginWithEmail = async function() {
+            const e = document.getElementById('auth-email').value;
+            const p = document.getElementById('auth-password').value;
+            if(!e || !p) return showAuthError("Email and password required.");
+            try {
+                await signInWithEmailAndPassword(auth, e, p);
+            } catch (error) {
+                showAuthError(error.message);
+            }
+        }
+        window.signupWithEmail = async function() {
+            const e = document.getElementById('auth-email').value;
+            const p = document.getElementById('auth-password').value;
+            if(!e || !p) return showAuthError("Email and password required.");
+            try {
+                await createUserWithEmailAndPassword(auth, e, p);
+            } catch (error) {
+                showAuthError(error.message);
+            }
+        }
+        window.handleSignOut = async function() {
+            try { await signOut(auth); closeSidebar(); } catch(e) {}
+        }
+        // ----------------------
+
+        async function fetchGamesData() {
+            loadedGames = [];
+            for (const gameId of gameDirectories) {
+                try {
+                    // Try fetching actual files
+                    const response = await fetch(`/games/${gameId}/info.xml`);
+                    if (!response.ok) throw new Error('XML not found');
+                    const text = await response.text();
+                    
+                    const parser = new DOMParser();
+                    const xml = parser.parseFromString(text, "text/xml");
+                    
+                    const name = xml.getElementsByTagName("name")[0]?.textContent || gameId;
+                    const desc = xml.getElementsByTagName("desc")[0]?.textContent || "No description provided.";
+                    const auth = xml.getElementsByTagName("auth")[0]?.textContent || "Unknown Author";
+                    
+                    loadedGames.push({
+                        id: gameId,
+                        title: name,
+                        description: desc,
+                        author: auth,
+                        iconUrl: `/games/${gameId}/icon.png`,
+                        gameUrl: `/games/${gameId}/g.html`
+                    });
+                } catch (e) {
+                    // Fallback to mock data for preview environments where /games/ directory doesn't exist
+                    loadedGames.push(getMockFallback(gameId));
+                }
+            }
+            renderGrid();
+        }
+
+        function getMockFallback(gameId) {
+            const mocks = {
+                'cyber-racer': { title: 'Cyber Racer 3D', desc: 'Race through neon-lit futuristic cityscapes. Avoid obstacles and collect energy cores to boost your speed. High-octane arcade action!', auth: 'Neon Studios', color: '06b6d4' },
+                'pixel-dungeon': { title: 'Pixel Dungeon', desc: 'Explore endless procedurally generated levels, fight classic monsters, and collect epic loot in this retro-styled roguelike crawler.', auth: 'Retro Games', color: '10b981' },
+                'neon-snake': { title: 'Neon Snake', desc: 'The classic game reimagined with glowing vector graphics. Eat the power pellets to grow, but do not crash into your own tail.', auth: 'Arcade Classics', color: 'ec4899' },
+                'space-defender': { title: 'Space Defender', desc: 'Defend your home planet from relentless waves of alien invaders. Upgrade your ship and deploy devastating smart bombs.', auth: 'Galaxy Corp', color: '3b82f6' },
+                'block-puzzle': { title: 'Tetra Blocks', desc: 'Clear lines by arranging falling blocks. A timeless puzzle experience that gets faster and more challenging as you play.', auth: 'Puzzle Master', color: 'f59e0b' },
+                'jump-ninja': { title: 'Jump Ninja', desc: 'Tap to jump between walls, avoid shurikens, and defeat enemies. How high can you climb in this endless jumper?', auth: 'Action Ninja', color: 'ef4444' }
+            };
+            const m = mocks[gameId] || { title: gameId, desc: 'A great game.', auth: 'Unknown', color: 'ffffff' };
+            return {
+                id: gameId,
+                title: m.title,
+                description: m.desc,
+                author: m.auth,
+                iconUrl: `https://placehold.co/400x400/${m.color}/000000?font=oswald&text=${gameId.split('-')[0].toUpperCase()}`,
+                gameUrl: 'about:blank'
+            };
+        }
+
+        // Firebase Listeners
+        function setupLikesListener() {
+            if (!db) return;
+            if (unsubGlobalLikes) return;
+            const likesRef = collection(db, 'artifacts', appId, 'public', 'data', 'likes');
+            
+            unsubGlobalLikes = onSnapshot(likesRef, (snapshot) => {
+                snapshot.forEach(doc => {
+                    globalLikes[doc.id] = doc.data().count || 0;
+                });
+                updateUIWithData();
+            }, (error) => {
+                console.error("Error fetching likes:", error);
+            });
+        }
+
+        function setupFavoritesListener() {
+            if (!currentUser) return;
+            const favRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'favorites');
+            
+            unsubFavorites = onSnapshot(favRef, (snapshot) => {
+                userFavorites = {}; // reset and rebuild
+                snapshot.forEach(doc => {
+                    if(doc.data().isFavorite) {
+                        userFavorites[doc.id] = true;
+                    }
+                });
+                updateUIWithData();
+                renderFavoritesSidebar();
+            }, (error) => {
+                console.error("Error fetching favorites:", error);
+            });
+        }
+
+        function setupUserLikesListener() {
+            if (!currentUser) return;
+            const likesRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'likes');
+            
+            unsubLikes = onSnapshot(likesRef, (snapshot) => {
+                userLikes = {};
+                snapshot.forEach(doc => {
+                    if(doc.data().isLiked) {
+                        userLikes[doc.id] = true;
+                    }
+                });
+                updateUIWithData();
+            }, (error) => {
+                console.error("Error fetching user likes:", error);
+            });
+        }
+
+        // UI Updates
+        function updateUIWithData() {
+            // Update grid counts/icons if visible on cards
+            loadedGames.forEach(game => {
+                const likeBadge = document.getElementById(`grid-like-${game.id}`);
+                const favBadge = document.getElementById(`grid-fav-${game.id}`);
+                
+                if (likeBadge) {
+                    likeBadge.innerHTML = `<i class="fa-solid fa-heart mr-1"></i> ${globalLikes[game.id] || 0}`;
+                }
+                if (favBadge && userFavorites[game.id]) {
+                    favBadge.classList.remove('hidden');
+                } else if (favBadge) {
+                    favBadge.classList.add('hidden');
+                }
+            });
+
+            // Update sidebar if open
+            if (currentGameSelected) {
+                updateSidebarActions(currentGameSelected);
+            }
+        }
+
+        // Render Grid
+        function renderGrid() {
+            const grid = document.getElementById('game-grid');
+            grid.innerHTML = '';
+
+            loadedGames.forEach(game => {
+                const card = document.createElement('div');
+                card.className = "game-card bg-slate-800 border border-slate-700 rounded-xl overflow-hidden cursor-pointer relative group flex flex-col";
+                card.onclick = () => openSidebar(game);
+
+                card.innerHTML = `
+                    <div class="relative pt-[100%] w-full bg-slate-900 border-b border-slate-700">
+                        <img src="${game.iconUrl}" alt="${game.title}" class="absolute inset-0 w-full h-full object-cover group-hover:opacity-80 transition-opacity" onerror="this.src='https://placehold.co/400x400/1e293b/ffffff?text=NO+ICON'">
+                        
+                        <!-- Favorite Badge Overlay -->
+                        <div id="grid-fav-${game.id}" class="absolute top-2 right-2 bg-yellow-500 text-slate-900 w-8 h-8 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(234,179,8,0.5)] ${userFavorites[game.id] ? '' : 'hidden'} transition-all z-10">
+                            <i class="fa-solid fa-star text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="p-4 flex flex-col flex-grow justify-between">
+                        <h3 class="font-bold text-lg mb-1 truncate">${game.title}</h3>
+                        <div class="flex justify-between items-center text-sm text-slate-400 mt-2">
+                            <span class="bg-slate-700 px-2 py-1 rounded-md text-xs font-semibold text-cyan-400 max-w-[50%] truncate">${game.author}</span>
+                            <span id="grid-like-${game.id}" class="flex items-center text-rose-400 bg-rose-500/10 px-2 py-1 rounded-md font-bold">
+                                <i class="fa-solid fa-heart mr-1"></i> ${globalLikes[game.id] || 0}
+                            </span>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Favorites Sidebar Logic
+        window.toggleFavoritesSidebar = function() {
+            const sidebar = document.getElementById('left-sidebar');
+            const overlay = document.getElementById('left-sidebar-overlay');
+            
+            if (sidebar.classList.contains('-translate-x-full')) {
+                // Open
+                renderFavoritesSidebar();
+                overlay.classList.remove('hidden');
+                setTimeout(() => {
+                    overlay.classList.remove('opacity-0');
+                    sidebar.classList.remove('-translate-x-full');
+                }, 10);
+            } else {
+                // Close
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('opacity-0');
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        function renderFavoritesSidebar() {
+            const container = document.getElementById('favorites-list');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            const favoriteGames = loadedGames.filter(g => userFavorites[g.id]);
+            
+            if (favoriteGames.length === 0) {
+                container.innerHTML = `
+                    <div class="text-slate-500 text-center mt-12 flex flex-col items-center">
+                        <i class="fa-regular fa-star text-5xl mb-4 opacity-50"></i>
+                        <p class="font-bold arcade-font">No favorites yet.</p>
+                        <p class="text-sm mt-2 max-w-[200px]">Log in and star some games to quickly access them here!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            favoriteGames.forEach(game => {
+                const item = document.createElement('div');
+                item.className = "bg-slate-900 border border-slate-700 p-3 rounded-xl flex items-center gap-4 cursor-pointer hover:bg-slate-700 hover:border-cyan-500 transition-all group shadow-md";
+                item.onclick = () => {
+                    toggleFavoritesSidebar();
+                    openSidebar(game);
+                };
+                
+                item.innerHTML = `
+                    <img src="${game.iconUrl}" class="w-16 h-16 rounded-lg object-cover group-hover:scale-105 transition-transform border border-slate-700" onerror="this.src='https://placehold.co/400x400/1e293b/ffffff?text=NO+ICON'">
+                    <div class="flex-grow overflow-hidden">
+                        <h4 class="font-bold text-cyan-400 arcade-font text-sm truncate">${game.title}</h4>
+                        <div class="text-xs text-slate-400 mt-2 flex justify-between items-center pr-2">
+                            <span class="truncate max-w-[90px] uppercase font-bold text-[10px]">${game.author}</span>
+                            <span class="text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded font-bold"><i class="fa-solid fa-heart text-[10px]"></i> ${globalLikes[game.id] || 0}</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        // Sidebar Logic (Exposed to window for inline onclick)
+        window.openSidebar = function(game) {
+            currentGameSelected = game;
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            const content = document.getElementById('sidebar-content');
+
+            // Build Sidebar Content
+            content.innerHTML = `
+                <div class="mt-6 flex flex-col items-center">
+                    <img src="${game.iconUrl}" class="w-40 h-40 rounded-2xl shadow-xl border-4 border-slate-700 mb-4 object-cover" alt="icon" onerror="this.src='https://placehold.co/400x400/1e293b/ffffff?text=NO+ICON'">
+                    <h2 class="text-3xl font-bold arcade-font text-center mb-1">${game.title}</h2>
+                    <p class="text-cyan-400 text-sm font-semibold tracking-wide uppercase mb-4"><i class="fa-solid fa-code"></i> ${game.author}</p>
+                    <div class="flex gap-4 mb-6">
+                        <div class="bg-slate-700/50 px-4 py-2 rounded-lg text-sm text-center">
+                            <div class="text-slate-400 text-xs uppercase tracking-wider mb-1">Global Likes</div>
+                            <div id="sidebar-like-count" class="font-bold text-rose-400 text-lg">
+                                <i class="fa-solid fa-heart"></i> ${globalLikes[game.id] || 0}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex flex-col gap-3">
+                    <button onclick="playGame('${game.id}')" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-4 rounded-xl text-lg transition-colors shadow-[0_0_15px_rgba(6,182,212,0.4)] flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-play"></i> PLAY NOW
+                    </button>
+                    
+                    <div class="flex gap-3">
+                        <button onclick="toggleLike('${game.id}')" id="btn-like" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-xl transition-colors border border-slate-600 flex justify-center items-center gap-2">
+                            <i class="fa-regular fa-heart text-rose-400"></i> Like
+                        </button>
+                        <button onclick="toggleFavorite('${game.id}')" id="btn-fav" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-xl transition-colors border border-slate-600 flex justify-center items-center gap-2">
+                            <i class="fa-regular fa-star text-yellow-400"></i> Favorite
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Info.txt Content -->
+                <div class="mt-6">
+                    <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-2 font-bold border-b border-slate-700 pb-2">Description</h3>
+                    <p class="text-slate-300 leading-relaxed text-sm bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+                        ${game.description}
+                    </p>
+                </div>
+            `;
+
+            updateSidebarActions(game);
+
+            // Show UI
+            overlay.classList.remove('hidden');
+            // Small delay to allow block render before transition
+            setTimeout(() => {
+                overlay.classList.remove('opacity-0');
+                sidebar.classList.remove('translate-x-full');
+            }, 10);
+        }
+
+        window.closeSidebar = function() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+
+            sidebar.classList.add('translate-x-full');
+            overlay.classList.add('opacity-0');
+            
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                currentGameSelected = null;
+            }, 300);
+        }
+
+        function updateSidebarActions(game) {
+            const btnLike = document.getElementById('btn-like');
+            const btnFav = document.getElementById('btn-fav');
+            const countDisplay = document.getElementById('sidebar-like-count');
+
+            if (!btnLike || !btnFav) return;
+
+            if (userLikes[game.id]) {
+                btnLike.innerHTML = `<i class="fa-solid fa-heart text-rose-400"></i> Liked`;
+                btnLike.classList.add('bg-slate-600', 'border-rose-500/50');
+            } else {
+                btnLike.innerHTML = `<i class="fa-regular fa-heart text-rose-400"></i> Like`;
+                btnLike.classList.remove('bg-slate-600', 'border-rose-500/50');
+            }
+            
+            if (userFavorites[game.id]) {
+                btnFav.innerHTML = `<i class="fa-solid fa-star text-yellow-400"></i> Favorited`;
+                btnFav.classList.add('bg-slate-600', 'border-yellow-500/50');
+            } else {
+                btnFav.innerHTML = `<i class="fa-regular fa-star text-yellow-400"></i> Favorite`;
+                btnFav.classList.remove('bg-slate-600', 'border-yellow-500/50');
+            }
+
+            if (countDisplay) {
+                countDisplay.innerHTML = `<i class="fa-solid fa-heart"></i> ${globalLikes[game.id] || 0}`;
+            }
+        }
+
+        // Action Handlers
+        window.toggleLike = async function(gameId) {
+            if (!currentUser || !db) {
+                openAuthModal();
+                return;
+            }
+
+            try {
+                const userLikeRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'likes', gameId);
+                const globalLikeRef = doc(db, 'artifacts', appId, 'public', 'data', 'likes', gameId);
+                
+                const isLiked = userLikes[gameId] || false;
+                
+                // Read global count
+                const docSnap = await getDoc(globalLikeRef);
+                let currentCount = docSnap.exists() ? (docSnap.data().count || 0) : 0;
+
+                if (isLiked) {
+                    // Remove Like
+                    await setDoc(userLikeRef, { isLiked: false }, { merge: true });
+                    userLikes[gameId] = false;
+                    currentCount = Math.max(0, currentCount - 1);
+                    await setDoc(globalLikeRef, { count: currentCount }, { merge: true });
+                } else {
+                    // Add Like
+                    await setDoc(userLikeRef, { isLiked: true }, { merge: true });
+                    userLikes[gameId] = true;
+                    currentCount += 1;
+                    await setDoc(globalLikeRef, { count: currentCount }, { merge: true });
+                }
+                
+                // Optimistic UI update
+                globalLikes[gameId] = currentCount;
+                updateUIWithData();
+                
+            } catch (error) {
+                console.error("Error toggling like:", error);
+            }
+        }
+
+        window.toggleFavorite = async function(gameId) {
+            if (!currentUser || !db) {
+                 openAuthModal();
+                 return;
+            }
+
+            try {
+                const favDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'favorites', gameId);
+                const isFav = userFavorites[gameId] || false;
+
+                if (isFav) {
+                    // Remove favorite
+                    await setDoc(favDocRef, { isFavorite: false }, { merge: true });
+                    userFavorites[gameId] = false;
+                } else {
+                    // Add favorite
+                    await setDoc(favDocRef, { isFavorite: true }, { merge: true });
+                    userFavorites[gameId] = true;
+                }
+                
+                updateUIWithData();
+
+            } catch (error) {
+                console.error("Error toggling favorite:", error);
+            }
+        }
+
+        // Iframe Game Player Logic
+        window.playGame = function(gameId) {
+            const game = loadedGames.find(g => g.id === gameId);
+            if (!game) return;
+
+            const player = document.getElementById('game-player');
+            const iframe = document.getElementById('game-iframe');
+            const title = document.getElementById('player-title');
+            
+            title.innerText = game.title;
+            
+            // Show Player Overlay
+            player.classList.remove('hidden');
+            player.classList.add('flex');
+            
+            iframe.classList.add('hidden');
+            
+            if (game.gameUrl !== 'about:blank') {
+                // If it's a real hosted game, load it directly
+                setTimeout(() => {
+                    iframe.src = game.gameUrl;
+                    iframe.classList.remove('hidden');
+                }, 800);
+            } else {
+                // Mock preview fallback
+                const mockGameHTML = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <style>
+                            body { margin: 0; background: #000; color: #06b6d4; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+                            h1 { font-size: 3rem; text-transform: uppercase; text-shadow: 0 0 10px #06b6d4; margin-bottom: 10px; text-align: center;}
+                            p { color: #fff; font-size: 1.2rem; text-align: center;}
+                            .author { color: #f59e0b; margin-top: 10px; font-weight: bold;}
+                            .btn { margin-top: 20px; padding: 15px 30px; background: #06b6d4; color: #000; border: none; font-size: 1.5rem; font-weight: bold; border-radius: 8px; cursor: pointer;}
+                            .btn:hover { background: #fff;}
+                        </style>
+                    </head>
+                    <body>
+                        <h1>${game.title}</h1>
+                        <p>Loading simulated: <b>/games/${game.id}/g.html</b></p>
+                        <p class="author">By ${game.author}</p>
+                        <button class="btn" onclick="this.innerText = 'SCORE: ' + Math.floor(Math.random()*1000)">CLICK TO PLAY</button>
+                    </body>
+                    </html>
+                `;
+                
+                setTimeout(() => {
+                    iframe.src = "data:text/html;charset=utf-8," + encodeURIComponent(mockGameHTML);
+                    iframe.classList.remove('hidden');
+                }, 800);
+            }
+        }
+
+        window.closeGame = function() {
+            const player = document.getElementById('game-player');
+            const iframe = document.getElementById('game-iframe');
+            
+            player.classList.add('hidden');
+            player.classList.remove('flex');
+            iframe.src = 'about:blank'; // Stop audio/execution
+            iframe.classList.add('hidden');
+        }
+
+        // Utility: Toast messaging
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = "fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-lg z-[200] text-sm border border-slate-700 animate-bounce";
+            toast.innerText = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Start
+        window.addEventListener('DOMContentLoaded', init);
+
+    </script>
+</body>
+</html>
