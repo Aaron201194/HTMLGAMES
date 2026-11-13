@@ -1,5 +1,11 @@
 [
   {
+    "folder": "2804",
+    "files": [
+      "g.html"
+    ]
+  },
+  {
     "folder": "angrybird",
     "files": [
       "g.html"
@@ -11,6 +17,42 @@
       "g.html",
       "icon.png",
       "info.xml"
+    ]
+  },
+  {
+    "folder": "baldi",
+    "files": [
+      "g.html"
+    ]
+  },
+  {
+    "folder": "btd1",
+    "files": [
+      "bloonstd.swf"
+    ]
+  },
+  {
+    "folder": "btd2",
+    "files": [
+      "bloonstd2.swf"
+    ]
+  },
+  {
+    "folder": "btd3",
+    "files": [
+      "bloonstd3.swf"
+    ]
+  },
+  {
+    "folder": "btd4",
+    "files": [
+      "bloonstd4.swf"
+    ]
+  },
+  {
+    "folder": "btd5",
+    "files": [
+      "btd5.swf"
     ]
   },
   {
