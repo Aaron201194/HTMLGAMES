@@ -1,5 +1,12 @@
 [
   {
+    "folder": "2048",
+    "files": [
+      "2048 Game.html",
+      "2048 Game_files"
+    ]
+  },
+  {
     "folder": "angrybird",
     "files": [
       "g.html"
