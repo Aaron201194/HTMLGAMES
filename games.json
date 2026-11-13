@@ -2,6 +2,7 @@
   {
     "folder": "2048",
     "files": [
+      "2048.html",
       "script.js"
     ]
   },
