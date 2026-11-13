@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neon Arcade - Web Game Browser</title>
+    <title>HTML Games - Web Game Browser</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -58,7 +58,7 @@
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <i class="fa-solid fa-gamepad text-3xl text-cyan-400"></i>
-                <h1 class="text-2xl font-bold arcade-font tracking-wider neon-text text-cyan-400 hidden sm:block">NEON ARCADE</h1>
+                <h1 class="text-2xl font-bold arcade-font tracking-wider neon-text text-cyan-400 hidden sm:block">HTML GAMES</h1>
                 <button onclick="toggleFavoritesSidebar()" class="ml-2 sm:ml-4 bg-slate-800 hover:bg-slate-700 text-yellow-400 px-3 py-2 rounded-lg font-bold border border-slate-700 transition-colors flex items-center gap-2">
                     <i class="fa-solid fa-star"></i> <span class="hidden sm:inline">Favorites</span>
                 </button>
@@ -151,9 +151,14 @@
     <div id="game-player" class="fixed inset-0 bg-black z-[100] hidden flex-col">
         <div class="bg-slate-900 border-b border-slate-700 p-3 flex justify-between items-center shadow-md">
             <h3 id="player-title" class="text-xl font-bold arcade-font text-cyan-400 ml-2">Game Title</h3>
-            <button onclick="closeGame()" class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2">
-                <i class="fa-solid fa-right-from-bracket"></i> Close Game
-            </button>
+            <div class="flex gap-2">
+                <button onclick="toggleFullscreen()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2">
+                    <i class="fa-solid fa-expand"></i> Fullscreen
+                </button>
+                <button onclick="closeGame()" class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2">
+                    <i class="fa-solid fa-right-from-bracket"></i> Close Game
+                </button>
+            </div>
         </div>
         <div class="flex-grow w-full relative bg-slate-950 flex items-center justify-center">
             <!-- Placeholder if iframe blocked/empty -->
@@ -167,7 +172,7 @@
     <!-- Firebase & Application Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global Variables
@@ -200,10 +205,17 @@
                 
                 try {
                     const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                    if (token && !auth.currentUser) {
+                    if (token) {
                         await signInWithCustomToken(auth, token);
+                    } else if (!auth.currentUser) {
+                        await signInAnonymously(auth);
                     }
-                } catch(e) { console.warn("Custom token auto-login skipped."); }
+                } catch(e) { 
+                    console.warn("Custom token auto-login skipped.", e);
+                    if (!auth.currentUser) {
+                        await signInAnonymously(auth).catch(console.error);
+                    }
+                }
             } else {
                 document.getElementById('user-status').innerHTML = '<span class="text-rose-500">Offline Mode (No Database)</span>';
                 await fetchGamesData(); // Render without DB
@@ -228,11 +240,16 @@
                     updateUIWithData();
                     renderFavoritesSidebar(); // clear it
                 } else {
-                    let displayId = user.email ? user.email.split('@')[0] : (user.uid.substring(0, 6) + '...');
+                    let displayId = user.isAnonymous ? "Guest Player" : (user.email ? user.email.split('@')[0] : (user.uid.substring(0, 6) + '...'));
+                    
+                    let authButton = user.isAnonymous 
+                        ? `<button onclick="openAuthModal()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-900 px-3 py-2 rounded-lg font-bold transition-colors shadow-[0_0_5px_rgba(6,182,212,0.5)] flex items-center gap-2"><i class="fa-solid fa-user-plus"></i><span class="hidden sm:inline">Save Account</span></button>`
+                        : `<button onclick="handleSignOut()" class="bg-slate-800 hover:bg-rose-600 text-white px-3 py-2 rounded-lg font-bold transition-colors border border-slate-700 flex items-center gap-2 shadow-[0_0_5px_rgba(0,0,0,0.5)]"><i class="fa-solid fa-power-off"></i><span class="hidden sm:inline">Logout</span></button>`;
+
                     document.getElementById('user-status').innerHTML = `
                         <div class="flex items-center gap-3">
                             <span class="text-cyan-400 font-bold hidden md:inline"><i class="fa-solid fa-user-astronaut mr-2"></i>${displayId}</span>
-                            <button onclick="handleSignOut()" class="bg-slate-800 hover:bg-rose-600 text-white px-3 py-2 rounded-lg font-bold transition-colors border border-slate-700 flex items-center gap-2 shadow-[0_0_5px_rgba(0,0,0,0.5)]"><i class="fa-solid fa-power-off"></i><span class="hidden sm:inline">Logout</span></button>
+                            ${authButton}
                         </div>
                     `;
                     closeAuthModal();
@@ -294,117 +311,136 @@
 
         async function fetchGamesData() {
             loadedGames = [];
-            const githubApiUrl = 'https://api.github.com/repos/Aaron201194/HTMLGAMES/contents/games';
-            
             try {
-                const apiResponse = await fetch(githubApiUrl);
-                if (!apiResponse.ok) throw new Error('Failed to fetch from GitHub API');
+                // Use GitHub API to list folders in /games/
+                const repoUrl = 'https://api.github.com/repos/Aaron201194/HTMLGAMES/contents/games';
+                const response = await fetch(repoUrl);
                 
-                const contents = await apiResponse.json();
-                // Filter only directories
-                const directories = contents.filter(item => item.type === 'dir');
-
-                for (const folder of directories) {
-                    const gameId = folder.name;
-                    try {
-                        const rawBaseUrl = `https://raw.githubusercontent.com/Aaron201194/HTMLGAMES/main/games/${gameId}`;
-                        const pagesBaseUrl = `https://aaron201194.github.io/HTMLGAMES/games/${gameId}`;
-                        
-                        // Fetch the info.xml file using the raw URL
-                        const xmlResponse = await fetch(`${rawBaseUrl}/info.xml`);
-                        if (!xmlResponse.ok) throw new Error('XML not found for ' + gameId);
-                        
-                        const text = await xmlResponse.text();
-                        
-                        const parser = new DOMParser();
-                        const xml = parser.parseFromString(text, "text/xml");
-                        
-                        const name = xml.getElementsByTagName("name")[0]?.textContent || gameId;
-                        const desc = xml.getElementsByTagName("desc")[0]?.textContent || "No description provided.";
-                        const auth = xml.getElementsByTagName("auth")[0]?.textContent || "Unknown Author";
-                        
-                        loadedGames.push({
-                            id: gameId,
-                            title: name,
-                            description: desc,
-                            author: auth,
-                            iconUrl: `${rawBaseUrl}/icon.png`,
-                            gameUrl: `${pagesBaseUrl}/g.html` // Playable GitHub Pages URL
-                        });
-                    } catch (e) {
-                        console.warn(`Could not load details for ${gameId}:`, e);
-                        // You can uncomment the line below if you want mock fallbacks for missing XMLs
-                        // loadedGames.push(getMockFallback(gameId));
-                    }
+                if (!response.ok) {
+                    throw new Error('Could not fetch from GitHub API');
                 }
-            } catch (error) {
-                console.error("Error fetching games list from GitHub:", error);
-                // Fallback to mock data if GitHub API fails (e.g., rate limit)
-                const fallbackDirs = ['cyber-racer', 'pixel-dungeon', 'neon-snake'];
-                fallbackDirs.forEach(id => loadedGames.push(getMockFallback(id)));
+                
+                const directories = await response.json();
+                
+                for (const dir of directories) {
+                    if (dir.type !== 'dir') continue;
+                    const gameId = dir.name;
+                    
+                    // Check folder contents for dynamic files
+                    const dirContentsRes = await fetch(dir.url);
+                    const files = dirContentsRes.ok ? await dirContentsRes.json() : [];
+                    
+                    let iconFileName = null;
+                    let hasInfoXml = false;
+                    let hasGHtml = false;
+                    
+                    const validIconExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif'];
+                    
+                    files.forEach(file => {
+                        const fname = file.name.toLowerCase();
+                        if (fname.startsWith('icon.')) {
+                            const ext = fname.substring(fname.lastIndexOf('.'));
+                            if (validIconExts.includes(ext)) {
+                                iconFileName = file.name;
+                            }
+                        }
+                        if (fname === 'info.xml') hasInfoXml = true;
+                        if (fname === 'g.html') hasGHtml = true;
+                    });
+                    
+                    let name = `_${gameId}_`;
+                    let desc = "No description provided.";
+                    let auth = "Unknown Author";
+                    
+                    if (hasInfoXml) {
+                        try {
+                            const xmlRes = await fetch(`https://raw.githubusercontent.com/Aaron201194/HTMLGAMES/main/games/${gameId}/info.xml`);
+                            if (xmlRes.ok) {
+                                const text = await xmlRes.text();
+                                const parser = new DOMParser();
+                                const xml = parser.parseFromString(text, "text/xml");
+                                
+                                const parsedName = xml.getElementsByTagName("name")[0]?.textContent;
+                                if (parsedName) name = parsedName;
+                                
+                                desc = xml.getElementsByTagName("desc")[0]?.textContent || desc;
+                                auth = xml.getElementsByTagName("auth")[0]?.textContent || auth;
+                            }
+                        } catch(e) {
+                            console.error("XML parse error for", gameId, e);
+                        }
+                    }
+                    
+                    const iconUrl = iconFileName 
+                        ? `https://raw.githubusercontent.com/Aaron201194/HTMLGAMES/main/games/${gameId}/${iconFileName}` 
+                        : `https://placehold.co/400x400/1e293b/ffffff?text=NO+ICON`;
+                        
+                    const gameUrl = hasGHtml 
+                        ? `https://aaron201194.github.io/HTMLGAMES/games/${gameId}/g.html` 
+                        : 'about:blank';
+                        
+                    const downloadUrl = `https://github.com/Aaron201194/HTMLGAMES/tree/main/games/${gameId}`;
+                    
+                    loadedGames.push({
+                        id: gameId,
+                        title: name,
+                        description: desc,
+                        author: auth,
+                        iconUrl: iconUrl,
+                        gameUrl: gameUrl,
+                        downloadUrl: downloadUrl
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to fetch games from GitHub:", e);
+                document.getElementById('user-status').innerHTML += '<span class="text-rose-500 ml-2">GitHub API Limit Reached</span>';
+                // Optional fallback if needed
+                const fallbackIds = ['cyber-racer', 'pixel-dungeon'];
+                fallbackIds.forEach(id => loadedGames.push(getMockFallback(id)));
             }
             renderGrid();
         }
 
         function getMockFallback(gameId) {
-            const mocks = {
-                'cyber-racer': { title: 'Cyber Racer 3D', desc: 'Race through neon-lit futuristic cityscapes. Avoid obstacles and collect energy cores to boost your speed. High-octane arcade action!', auth: 'Neon Studios', color: '06b6d4' },
-                'pixel-dungeon': { title: 'Pixel Dungeon', desc: 'Explore endless procedurally generated levels, fight classic monsters, and collect epic loot in this retro-styled roguelike crawler.', auth: 'Retro Games', color: '10b981' },
-                'neon-snake': { title: 'Neon Snake', desc: 'The classic game reimagined with glowing vector graphics. Eat the power pellets to grow, but do not crash into your own tail.', auth: 'Arcade Classics', color: 'ec4899' },
-                'space-defender': { title: 'Space Defender', desc: 'Defend your home planet from relentless waves of alien invaders. Upgrade your ship and deploy devastating smart bombs.', auth: 'Galaxy Corp', color: '3b82f6' },
-                'block-puzzle': { title: 'Tetra Blocks', desc: 'Clear lines by arranging falling blocks. A timeless puzzle experience that gets faster and more challenging as you play.', auth: 'Puzzle Master', color: 'f59e0b' },
-                'jump-ninja': { title: 'Jump Ninja', desc: 'Tap to jump between walls, avoid shurikens, and defeat enemies. How high can you climb in this endless jumper?', auth: 'Action Ninja', color: 'ef4444' }
-            };
-            const m = mocks[gameId] || { title: gameId, desc: 'A great game.', auth: 'Unknown', color: 'ffffff' };
             return {
                 id: gameId,
-                title: m.title,
-                description: m.desc,
-                author: m.auth,
-                iconUrl: `https://placehold.co/400x400/${m.color}/000000?font=oswald&text=${gameId.split('-')[0].toUpperCase()}`,
-                gameUrl: 'about:blank'
+                title: `_${gameId}_`,
+                description: "This is a fallback game because GitHub API limit was reached.",
+                author: "Unknown Author",
+                iconUrl: `https://placehold.co/400x400/1e293b/ffffff?text=${gameId}`,
+                gameUrl: 'about:blank',
+                downloadUrl: '#'
             };
         }
 
-        // Firebase Listeners
         function setupLikesListener() {
             if (!db) return;
-            if (unsubGlobalLikes) return;
-            const likesRef = collection(db, 'artifacts', appId, 'public', 'data', 'likes');
-            
-            unsubGlobalLikes = onSnapshot(likesRef, (snapshot) => {
+            const globalLikesRef = collection(db, 'artifacts', appId, 'public', 'data', 'likes');
+            unsubGlobalLikes = onSnapshot(globalLikesRef, (snapshot) => {
                 snapshot.forEach(doc => {
                     globalLikes[doc.id] = doc.data().count || 0;
                 });
                 updateUIWithData();
-            }, (error) => {
-                console.error("Error fetching likes:", error);
-            });
+            }, (error) => console.error("Global likes err:", error));
         }
 
         function setupFavoritesListener() {
-            if (!currentUser) return;
-            const favRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'favorites');
-            
-            unsubFavorites = onSnapshot(favRef, (snapshot) => {
-                userFavorites = {}; // reset and rebuild
+            if (!db || !currentUser) return;
+            const favsRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'favorites');
+            unsubFavorites = onSnapshot(favsRef, (snapshot) => {
+                userFavorites = {};
                 snapshot.forEach(doc => {
-                    if(doc.data().isFavorite) {
-                        userFavorites[doc.id] = true;
-                    }
+                    if (doc.data().isFavorite) userFavorites[doc.id] = true;
                 });
                 updateUIWithData();
                 renderFavoritesSidebar();
-            }, (error) => {
-                console.error("Error fetching favorites:", error);
-            });
+            }, (error) => console.error("Favorites err:", error));
         }
 
         function setupUserLikesListener() {
-            if (!currentUser) return;
-            const likesRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'likes');
-            
-            unsubLikes = onSnapshot(likesRef, (snapshot) => {
+            if (!db || !currentUser) return;
+            const userLikesRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'likes');
+            unsubLikes = onSnapshot(userLikesRef, (snapshot) => {
                 userLikes = {};
                 snapshot.forEach(doc => {
                     if(doc.data().isLiked) {
@@ -564,6 +600,10 @@
                     <button onclick="playGame('${game.id}')" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-4 rounded-xl text-lg transition-colors shadow-[0_0_15px_rgba(6,182,212,0.4)] flex justify-center items-center gap-2">
                         <i class="fa-solid fa-play"></i> PLAY NOW
                     </button>
+                    
+                    <a href="${game.downloadUrl || '#'}" target="_blank" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors shadow-[0_0_10px_rgba(16,185,129,0.3)] flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-download"></i> DOWNLOAD FILES
+                    </a>
                     
                     <div class="flex gap-3">
                         <button onclick="toggleLike('${game.id}')" id="btn-like" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-xl transition-colors border border-slate-600 flex justify-center items-center gap-2">
@@ -765,6 +805,21 @@
             player.classList.remove('flex');
             iframe.src = 'about:blank'; // Stop audio/execution
             iframe.classList.add('hidden');
+            
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(()=>{});
+            }
+        }
+        
+        window.toggleFullscreen = function() {
+            const iframe = document.getElementById('game-iframe');
+            if (!document.fullscreenElement) {
+                iframe.requestFullscreen().catch(err => {
+                    showToast(`Fullscreen error: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen().catch(()=>{});
+            }
         }
 
         // Utility: Toast messaging
