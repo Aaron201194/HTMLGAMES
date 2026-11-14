@@ -98,6 +98,7 @@
     "folder": "sm64",
     "files": [
       "g.n64",
+      "icon.png",
       "info.xml"
     ]
   },
