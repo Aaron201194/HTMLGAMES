@@ -82,9 +82,30 @@
     ]
   },
   {
+    "folder": "papermc",
+    "files": [
+      "g.sb3",
+      "icon.png"
+    ]
+  },
+  {
     "folder": "sansfight",
     "files": [
       "g.html"
+    ]
+  },
+  {
+    "folder": "sm64",
+    "files": [
+      "g.n64",
+      "info.xml"
+    ]
+  },
+  {
+    "folder": "smb3",
+    "files": [
+      "g.nes",
+      "info.xml"
     ]
   },
   {
