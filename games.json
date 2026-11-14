@@ -103,6 +103,20 @@
     ]
   },
   {
+    "folder": "smb",
+    "files": [
+      "g.nes",
+      "info.xml"
+    ]
+  },
+  {
+    "folder": "smb2",
+    "files": [
+      "g.nes",
+      "info.xml"
+    ]
+  },
+  {
     "folder": "smb3",
     "files": [
       "g.nes",
