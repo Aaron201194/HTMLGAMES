@@ -3,872 +3,644 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HTML Games - Web Game Browser</title>
+    <title>HTML Games</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&display=swap');
-        
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0f172a; /* Slate 900 */
+            background-color: #0b0f19;
             color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             overflow-x: hidden;
         }
-
-        h1, h2, h3, .arcade-font {
-            font-family: 'Orbitron', sans-serif;
-        }
-
-        .neon-text {
-            text-shadow: 0 0 5px #06b6d4, 0 0 10px #06b6d4;
-        }
-
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #38bdf8; }
         .game-card {
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         }
-
         .game-card:hover {
-            transform: translateY(-5px) scale(1.02);
-            box-shadow: 0 10px 15px -3px rgba(6, 182, 212, 0.3), 0 4px 6px -2px rgba(6, 182, 212, 0.2);
-            border-color: #06b6d4;
-        }
-
-        /* Custom Scrollbar for Sidebar */
-        .sidebar-scroll::-webkit-scrollbar {
-            width: 6px;
-        }
-        .sidebar-scroll::-webkit-scrollbar-track {
-            background: #1e293b; 
-        }
-        .sidebar-scroll::-webkit-scrollbar-thumb {
-            background: #475569; 
-            border-radius: 4px;
-        }
-        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-            background: #06b6d4; 
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.25);
+            border-color: #38bdf8;
         }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
-    <!-- Navbar -->
-    <nav class="bg-slate-900 border-b border-slate-700 p-4 sticky top-0 z-30 shadow-lg">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
+    <!-- Top Navbar -->
+    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
             <div class="flex items-center gap-3">
-                <i class="fa-solid fa-gamepad text-3xl text-cyan-400"></i>
-                <h1 class="text-2xl font-bold arcade-font tracking-wider neon-text text-cyan-400 hidden sm:block">HTML GAMES</h1>
-                <button onclick="toggleFavoritesSidebar()" class="ml-2 sm:ml-4 bg-slate-800 hover:bg-slate-700 text-yellow-400 px-3 py-2 rounded-lg font-bold border border-slate-700 transition-colors flex items-center gap-2">
-                    <i class="fa-solid fa-star"></i> <span class="hidden sm:inline">Favorites</span>
+                <button id="toggleFavoritesBtn" class="bg-slate-800 hover:bg-slate-700 text-amber-400 px-3 py-2 rounded-lg border border-slate-700 flex items-center gap-2 transition" title="Favorites Sidebar">
+                    <i class="fa-solid fa-star"></i>
+                    <span class="hidden sm:inline text-sm font-semibold">Favorites</span>
+                    <span id="favCountBadge" class="bg-amber-500/20 text-amber-300 text-xs px-1.5 py-0.5 rounded-full">0</span>
+                </button>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-gamepad text-sky-400 text-2xl"></i>
+                    <h1 class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent">HTML Games</h1>
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="flex-1 max-w-md">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input type="text" id="searchInput" placeholder="Search games, authors, formats..."
+                        class="w-full bg-slate-800/80 border border-slate-700 rounded-lg pl-9 pr-4 py-1.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-sky-400">
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 text-xs text-slate-400">
+                <button id="refreshBtn" class="bg-slate-800 hover:bg-slate-700 text-sky-400 px-3 py-2 rounded-lg border border-slate-700 transition" title="Reload games.json">
+                    <i class="fa-solid fa-rotate-right"></i>
                 </button>
             </div>
-            <div class="text-sm font-medium text-slate-400" id="user-status">
-                Connecting...
-            </div>
         </div>
-    </nav>
+    </header>
 
-    <!-- Main Content -->
-    <main class="flex-grow p-6 max-w-7xl mx-auto w-full">
-        
-        <!-- Hero / Filters (Decorative) -->
-        <div class="mb-8 flex justify-between items-end">
-            <div>
-                <h2 class="text-3xl font-bold arcade-font mb-2">ALL GAMES</h2>
-                <p class="text-slate-400 text-sm">Select a game to view details and play.</p>
-            </div>
+    <!-- Status Banner -->
+    <div id="statusBanner" class="hidden bg-red-950/80 border-b border-red-800 text-red-200 px-4 py-2 text-sm text-center"></div>
+
+    <!-- Main Grid -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
+        <div id="loadingState" class="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
+            <i class="fa-solid fa-circle-notch fa-spin text-4xl text-sky-400"></i>
+            <p class="text-sm">Loading games from manifest...</p>
         </div>
 
-        <!-- Game Grid -->
-        <div id="game-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            <!-- Games will be injected here -->
-        </div>
+        <div id="gamesGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 hidden"></div>
 
+        <div id="emptyState" class="hidden text-center py-20 text-slate-400">
+            <i class="fa-solid fa-ghost text-4xl mb-3 text-slate-600"></i>
+            <p>No games found.</p>
+        </div>
     </main>
 
     <!-- Left Favorites Sidebar -->
-    <div id="left-sidebar-overlay" class="fixed inset-0 bg-black/60 z-40 hidden transition-opacity opacity-0" onclick="toggleFavoritesSidebar()"></div>
-    
-    <div id="left-sidebar" class="fixed left-0 top-0 h-full w-full sm:w-80 bg-slate-800 border-r border-slate-700 z-50 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col shadow-2xl">
-        <div class="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900 shadow-md">
-            <h2 class="text-xl font-bold arcade-font text-yellow-400"><i class="fa-solid fa-star"></i> My Favorites</h2>
-            <button onclick="toggleFavoritesSidebar()" class="text-slate-400 hover:text-white transition-colors bg-slate-700 hover:bg-slate-600 rounded-full w-8 h-8 flex items-center justify-center">
-                <i class="fa-solid fa-times"></i>
+    <div id="favBackdrop" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 hidden"></div>
+    <aside id="favoritesSidebar" class="fixed top-0 left-0 h-full w-80 bg-slate-900 border-r border-slate-800 z-50 transform -translate-x-full transition-transform duration-300 flex flex-col">
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+            <div class="flex items-center gap-2 text-amber-400 font-bold">
+                <i class="fa-solid fa-star"></i>
+                <span>Your Favorites</span>
+            </div>
+            <button id="closeFavSidebar" class="text-slate-400 hover:text-white p-1">
+                <i class="fa-solid fa-xmark text-lg"></i>
             </button>
         </div>
-        <div class="flex-grow overflow-y-auto sidebar-scroll p-4 flex flex-col gap-4" id="favorites-list">
-            <!-- Favorited games injected here -->
-        </div>
-    </div>
+        <div id="favoritesList" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
+    </aside>
 
-    <!-- Auth Modal -->
-    <div id="auth-modal" class="fixed inset-0 bg-black/80 z-[60] hidden flex items-center justify-center p-4">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
-            <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors bg-slate-700 hover:bg-slate-600 rounded-full w-8 h-8 flex items-center justify-center">
-                <i class="fa-solid fa-times"></i>
+    <!-- Right Game Details Sidebar -->
+    <div id="detailsBackdrop" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 hidden"></div>
+    <aside id="detailsSidebar" class="fixed top-0 right-0 h-full w-full max-w-md bg-slate-900 border-l border-slate-800 z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+            <span id="detailFormatBadge" class="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">HTML</span>
+            <button id="closeDetailsSidebar" class="text-slate-400 hover:text-white p-1">
+                <i class="fa-solid fa-xmark text-xl"></i>
             </button>
-            <h2 class="text-2xl font-bold arcade-font text-cyan-400 mb-6 text-center">ACCESS TERMINAL</h2>
-            
-            <button onclick="loginWithGoogle()" class="w-full bg-white text-slate-900 font-bold py-3 rounded-xl mb-4 flex items-center justify-center gap-3 hover:bg-gray-200 transition-colors shadow-[0_0_10px_rgba(255,255,255,0.2)]">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google Logo" class="w-6 h-6"> Continue with Google
-            </button>
-            
-            <div class="flex items-center my-4">
-                <div class="flex-grow border-t border-slate-600"></div>
-                <span class="px-3 text-slate-400 text-sm font-bold tracking-wider">OR</span>
-                <div class="flex-grow border-t border-slate-600"></div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            <div class="aspect-video w-full rounded-xl overflow-hidden bg-slate-800 border border-slate-700">
+                <img id="detailIcon" src="" alt="Game Icon" class="w-full h-full object-cover">
             </div>
 
-            <div class="flex flex-col gap-3">
-                <input type="email" id="auth-email" placeholder="Email Address" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-400 transition-colors">
-                <input type="password" id="auth-password" placeholder="Password" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-400 transition-colors">
-                <div class="flex gap-3 mt-2">
-                    <button onclick="loginWithEmail()" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-lg transition-colors">Log In</button>
-                    <button onclick="signupWithEmail()" class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white font-bold py-3 rounded-lg transition-colors">Sign Up</button>
+            <div>
+                <h2 id="detailTitle" class="text-2xl font-extrabold text-white break-words">Game Title</h2>
+                <p class="text-sm text-slate-400 mt-1">By <span id="detailAuthor" class="text-sky-400 font-medium">Unknown</span></p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="space-y-3">
+                <button id="playBtn" class="w-full py-3.5 px-4 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2 transition cursor-pointer">
+                    <i class="fa-solid fa-play"></i>
+                    <span>PLAY</span>
+                </button>
+
+                <a id="downloadBtn" href="#" target="_blank" rel="noopener noreferrer" class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition">
+                    <i class="fa-solid fa-download"></i>
+                    <span>Download</span>
+                </a>
+
+                <div class="grid grid-cols-2 gap-3 pt-1">
+                    <button id="likeBtn" class="py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-750 font-semibold text-sm flex items-center justify-center gap-2 transition cursor-pointer">
+                        <i id="likeIcon" class="fa-regular fa-heart text-rose-400"></i>
+                        <span id="likeText">Like</span>
+                        <span id="likeCount" class="text-xs bg-slate-900 px-2 py-0.5 rounded-full text-slate-300">0</span>
+                    </button>
+
+                    <button id="favBtn" class="py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-750 font-semibold text-sm flex items-center justify-center gap-2 transition cursor-pointer">
+                        <i id="favIcon" class="fa-regular fa-star text-amber-400"></i>
+                        <span id="favText">Favorite</span>
+                    </button>
                 </div>
             </div>
-            <p id="auth-error" class="text-rose-500 text-sm mt-4 text-center font-bold hidden"></p>
-        </div>
-    </div>
 
-    <!-- Sidebar / Modal -->
-    <div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-40 hidden transition-opacity opacity-0" onclick="closeSidebar()"></div>
-    
-    <div id="sidebar" class="fixed right-0 top-0 h-full w-full sm:w-96 bg-slate-800 border-l border-slate-700 z-50 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col shadow-2xl">
-        <!-- Close Button -->
-        <button onclick="closeSidebar()" class="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-full w-8 h-8 flex items-center justify-center transition-colors">
-            <i class="fa-solid fa-times"></i>
-        </button>
-
-        <!-- Sidebar Content -->
-        <div class="flex-grow overflow-y-auto sidebar-scroll p-6 flex flex-col gap-6" id="sidebar-content">
-            <!-- Injected via JS -->
-        </div>
-    </div>
-
-    <!-- Game Player (Iframe Overlay) -->
-    <div id="game-player" class="fixed inset-0 bg-black z-[100] hidden flex-col">
-        <div class="bg-slate-900 border-b border-slate-700 p-3 flex justify-between items-center shadow-md">
-            <h3 id="player-title" class="text-xl font-bold arcade-font text-cyan-400 ml-2">Game Title</h3>
-            <div class="flex gap-2">
-                <button onclick="toggleFullscreen()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2">
-                    <i class="fa-solid fa-expand"></i> Fullscreen
-                </button>
-                <button onclick="closeGame()" class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2">
-                    <i class="fa-solid fa-right-from-bracket"></i> Close Game
-                </button>
+            <div class="bg-slate-800/60 border border-slate-800 rounded-xl p-4">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Description</h3>
+                <p id="detailDesc" class="text-sm text-slate-200 leading-relaxed whitespace-pre-line">No description provided.</p>
             </div>
         </div>
-        <div class="flex-grow w-full relative bg-slate-950 flex items-center justify-center">
-            <!-- Placeholder if iframe blocked/empty -->
-            <div id="iframe-loading" class="absolute inset-0 flex items-center justify-center text-slate-500 arcade-font animate-pulse">
-                LOADING GAME ENGINE...
+    </aside>
+
+    <!-- Full-Viewport Game Player Overlay -->
+    <div id="playerOverlay" class="fixed inset-0 bg-black z-50 hidden flex-col">
+        <div class="h-12 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button id="closePlayerBtn" class="text-slate-300 hover:text-white flex items-center gap-1.5 text-sm font-semibold bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg transition cursor-pointer">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>Back</span>
+                </button>
+                <span id="playerTitle" class="font-bold text-white text-sm truncate max-w-xs sm:max-w-md">Playing Game</span>
             </div>
-            <iframe id="game-iframe" class="w-full h-full border-0 relative z-10 hidden" allowfullscreen></iframe>
+            <button id="fullscreenBtn" class="text-sky-400 hover:text-sky-300 flex items-center gap-1.5 text-sm font-semibold bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg transition cursor-pointer">
+                <i class="fa-solid fa-expand"></i>
+                <span>Fullscreen</span>
+            </button>
         </div>
+        <div id="playerContainer" class="flex-1 w-full h-full bg-black relative"></div>
     </div>
 
-    <!-- Firebase & Application Logic -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        // Konami Arrow Sequence Easter Egg (Hold '\' + ↑ ↑ ↓ ↓ ← → ← →)
-const konamiArrows = [
-    'ArrowUp', 'ArrowUp',
-    'ArrowDown', 'ArrowDown',
-    'ArrowLeft', 'ArrowRight',
-    'ArrowLeft', 'ArrowRight'
-];
-let konamiIndex = 0;
-let backslashHeld = false;
+    <script>
+        const CONFIG = {
+            owner: 'Aaron201194',
+            repo: 'HTMLGAMES',
+            branch: 'main'
+        };
 
-document.addEventListener('keydown', (e) => {
-    if (e.key === '\\' || e.code === 'Backslash') {
-        backslashHeld = true;
-        return;
-    }
+        const RAW_BASE = `https://raw.githubusercontent.com/${CONFIG.owner}/${CONFIG.repo}/${CONFIG.branch}`;
+        const PAGES_BASE = `https://${CONFIG.owner.toLowerCase()}.github.io/${CONFIG.repo}`;
 
-    if (!backslashHeld || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        let allGames = [];
+        let selectedGame = null;
+        let userLikes = JSON.parse(localStorage.getItem('htmlgames_likes') || '{}');
+        let userFavorites = JSON.parse(localStorage.getItem('htmlgames_favorites') || '[]');
+        let globalLikeCounts = JSON.parse(localStorage.getItem('htmlgames_like_counts') || '{}');
 
-    if (e.key === konamiArrows[konamiIndex]) {
-        konamiIndex++;
-        if (konamiIndex === konamiArrows.length) {
-            konamiIndex = 0;
-            backslashHeld = false;
-            window.location.href = '/HTMLGAMES/test.html';
+        const ICON_EXTS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg', 'ico'];
+        const ROM_CORES = {
+            z64: 'n64', n64: 'n64', v64: 'n64',
+            nes: 'nes', fds: 'nes',
+            sfc: 'snes', smc: 'snes',
+            gb: 'gb', gbc: 'gbc', gba: 'gba',
+            nds: 'nds',
+            gen: 'segaMD', md: 'segaMD', smd: 'segaMD', sms: 'segaMS', gg: 'segaGG', '32x': 'sega32x',
+            bin: 'psx', iso: 'psx', cue: 'psx', pbp: 'psx',
+            a26: 'atari2600', a78: 'atari7800', lnx: 'lynx',
+            ngp: 'ngp', ngc: 'ngp', ws: 'ws', wsc: 'ws'
+        };
+
+        function saveLocalState() {
+            localStorage.setItem('htmlgames_likes', JSON.stringify(userLikes));
+            localStorage.setItem('htmlgames_favorites', JSON.stringify(userFavorites));
+            localStorage.setItem('htmlgames_like_counts', JSON.stringify(globalLikeCounts));
+            updateFavBadge();
         }
-    } else {
-        konamiIndex = (e.key === konamiArrows[0]) ? 1 : 0;
-    }
-});
 
-document.addEventListener('keyup', (e) => {
-    if (e.key === '\\' || e.code === 'Backslash') {
-        backslashHeld = false;
-        konamiIndex = 0;
-    }
-});
-        // Global Variables
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'neon-arcade-v1';
-        let firebaseConfig = {};
-        try {
-            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        } catch(e) { console.error("Firebase config error:", e); }
+        function updateFavBadge() {
+            document.getElementById('favCountBadge').textContent = userFavorites.length;
+        }
 
-        let app, db, auth;
-        let currentUser = null;
-        
-        // State
-        let globalLikes = {}; // gameId -> count
-        let userFavorites = {}; // gameId -> boolean
-        let userLikes = {}; // gameId -> boolean
-        let currentGameSelected = null;
-        let loadedGames = [];
-        let unsubFavorites = null;
-        let unsubLikes = null;
-        let unsubGlobalLikes = null;
+        function showStatus(msg) {
+            const banner = document.getElementById('statusBanner');
+            banner.textContent = msg;
+            banner.classList.remove('hidden');
+        }
 
-        // Initialization
-        async function init() {
-            if (Object.keys(firebaseConfig).length > 0) {
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                setupAuthListener();
-                
-                try {
-                    const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                    if (token) {
-                        await signInWithCustomToken(auth, token);
-                    } else if (!auth.currentUser) {
-                        await signInAnonymously(auth);
-                    }
-                } catch(e) { 
-                    console.warn("Custom token auto-login skipped.", e);
-                    if (!auth.currentUser) {
-                        await signInAnonymously(auth).catch(console.error);
-                    }
+        function detectPlayableFile(files) {
+            const lowerMap = files.map(f => ({ orig: f, low: f.toLowerCase() }));
+
+            // Priority 1: g.html or index.html
+            for (const target of ['g.html', 'index.html', 'game.html']) {
+                const match = lowerMap.find(f => f.low === target);
+                if (match) return { file: match.orig, type: 'html' };
+            }
+            const anyHtml = lowerMap.find(f => f.low.endsWith('.html') || f.low.endsWith('.htm'));
+            if (anyHtml) return { file: anyHtml.orig, type: 'web' };
+
+            // Priority 2: Scratch, Flash, Pico-8, Love2D, Python, Lua, DOS/EXE, ROMs, JS
+            const checks = [
+                { test: l => l.endsWith('.sb3') || l.endsWith('.sb2'), type: 'scratch' },
+                { test: l => l.endsWith('.swf'), type: 'flash' },
+                { test: l => l.endsWith('.p8.png') || l.endsWith('.p8'), type: 'pico8' },
+                { test: l => l.endsWith('.love'), type: 'love2d' },
+                { test: l => l.endsWith('.py'), type: 'python' },
+                { test: l => l.endsWith('.lua'), type: 'lua' },
+                { test: l => l.endsWith('.exe') || l.endsWith('.com') || l.endsWith('.bat'), type: 'exe' },
+                { test: l => Object.keys(ROM_CORES).some(ext => l.endsWith('.' + ext)), type: 'rom' },
+                { test: l => l.endsWith('.js'), type: 'javascript' }
+            ];
+
+            for (const rule of checks) {
+                const match = lowerMap.find(f => rule.test(f.low));
+                if (match) return { file: match.orig, type: rule.type };
+            }
+
+            return { file: 'g.html', type: 'html' };
+        }
+
+        async function loadGamesFromManifest() {
+            const loading = document.getElementById('loadingState');
+            const grid = document.getElementById('gamesGrid');
+            const empty = document.getElementById('emptyState');
+
+            loading.classList.remove('hidden');
+            grid.classList.add('hidden');
+            empty.classList.add('hidden');
+            document.getElementById('statusBanner').classList.add('hidden');
+
+            try {
+                const res = await fetch(`${RAW_BASE}/games.json?t=${Date.now()}`);
+                if (!res.ok) {
+                    throw new Error(`games.json not found (${res.status}). Run the "Build Games Manifest" GitHub Action first.`);
                 }
-            } else {
-                document.getElementById('user-status').innerHTML = '<span class="text-rose-500">Offline Mode (No Database)</span>';
-                await fetchGamesData(); // Render without DB
-            }
-        }
+                const manifest = await res.json();
 
-        function setupAuthListener() {
-            onAuthStateChanged(auth, async (user) => {
-                currentUser = user;
-                
-                if (unsubFavorites) { unsubFavorites(); unsubFavorites = null; }
-                if (unsubLikes) { unsubLikes(); unsubLikes = null; }
-                
-                if (!user) {
-                     userFavorites = {};
-                     userLikes = {};
-                     document.getElementById('user-status').innerHTML = `
-                        <button onclick="openAuthModal()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-900 px-4 py-2 rounded-lg font-bold transition-colors shadow-[0_0_10px_rgba(6,182,212,0.3)]"><i class="fa-solid fa-right-to-bracket mr-1"></i> LOGIN</button>
-                    `;
-                    if (loadedGames.length === 0) await fetchGamesData();
-                    setupLikesListener();
-                    updateUIWithData();
-                    renderFavoritesSidebar(); // clear it
-                } else {
-                    let displayId = user.isAnonymous ? "Guest Player" : (user.email ? user.email.split('@')[0] : (user.uid.substring(0, 6) + '...'));
-                    
-                    let authButton = user.isAnonymous 
-                        ? `<button onclick="openAuthModal()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-900 px-3 py-2 rounded-lg font-bold transition-colors shadow-[0_0_5px_rgba(6,182,212,0.5)] flex items-center gap-2"><i class="fa-solid fa-user-plus"></i><span class="hidden sm:inline">Save Account</span></button>`
-                        : `<button onclick="handleSignOut()" class="bg-slate-800 hover:bg-rose-600 text-white px-3 py-2 rounded-lg font-bold transition-colors border border-slate-700 flex items-center gap-2 shadow-[0_0_5px_rgba(0,0,0,0.5)]"><i class="fa-solid fa-power-off"></i><span class="hidden sm:inline">Logout</span></button>`;
+                allGames = await Promise.all(manifest.map(async ({ folder, files }) => {
+                    const folderRaw = `${RAW_BASE}/games/${encodeURIComponent(folder)}`;
+                    let title = `_${folder}_`;
+                    let description = 'No description available.';
+                    let author = 'Unknown';
 
-                    document.getElementById('user-status').innerHTML = `
-                        <div class="flex items-center gap-3">
-                            <span class="text-cyan-400 font-bold hidden md:inline"><i class="fa-solid fa-user-astronaut mr-2"></i>${displayId}</span>
-                            ${authButton}
-                        </div>
-                    `;
-                    closeAuthModal();
-                    
-                    if (loadedGames.length === 0) await fetchGamesData();
-                    setupLikesListener();
-                    setupFavoritesListener();
-                    setupUserLikesListener();
-                }
-            });
-        }
-
-        // --- AUTH FUNCTIONS ---
-        window.openAuthModal = function() {
-            document.getElementById('auth-modal').classList.remove('hidden');
-        }
-        window.closeAuthModal = function() {
-            document.getElementById('auth-modal').classList.add('hidden');
-            document.getElementById('auth-error').classList.add('hidden');
-        }
-        function showAuthError(msg) {
-            const err = document.getElementById('auth-error');
-            err.innerText = msg;
-            err.classList.remove('hidden');
-        }
-
-        window.loginWithGoogle = async function() {
-            try {
-                const provider = new GoogleAuthProvider();
-                await signInWithPopup(auth, provider);
-            } catch (error) {
-                showAuthError(error.message);
-            }
-        }
-        window.loginWithEmail = async function() {
-            const e = document.getElementById('auth-email').value;
-            const p = document.getElementById('auth-password').value;
-            if(!e || !p) return showAuthError("Email and password required.");
-            try {
-                await signInWithEmailAndPassword(auth, e, p);
-            } catch (error) {
-                showAuthError(error.message);
-            }
-        }
-        window.signupWithEmail = async function() {
-            const e = document.getElementById('auth-email').value;
-            const p = document.getElementById('auth-password').value;
-            if(!e || !p) return showAuthError("Email and password required.");
-            try {
-                await createUserWithEmailAndPassword(auth, e, p);
-            } catch (error) {
-                showAuthError(error.message);
-            }
-        }
-        window.handleSignOut = async function() {
-            try { await signOut(auth); closeSidebar(); } catch(e) {}
-        }
-        // ----------------------
-
-        async function fetchGamesData() {
-            loadedGames = [];
-            try {
-                // Use GitHub API to list folders in /games/
-                const repoUrl = 'https://api.github.com/repos/Aaron201194/HTMLGAMES/contents/games';
-                const response = await fetch(repoUrl);
-                
-                if (!response.ok) {
-                    throw new Error('Could not fetch from GitHub API');
-                }
-                
-                const directories = await response.json();
-                
-                for (const dir of directories) {
-                    if (dir.type !== 'dir') continue;
-                    const gameId = dir.name;
-                    
-                    // Check folder contents for dynamic files
-                    const dirContentsRes = await fetch(dir.url);
-                    const files = dirContentsRes.ok ? await dirContentsRes.json() : [];
-                    
-                    let iconFileName = null;
-                    let hasInfoXml = false;
-                    let hasGHtml = false;
-                    
-                    const validIconExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif'];
-                    
-                    files.forEach(file => {
-                        const fname = file.name.toLowerCase();
-                        if (fname.startsWith('icon.')) {
-                            const ext = fname.substring(fname.lastIndexOf('.'));
-                            if (validIconExts.includes(ext)) {
-                                iconFileName = file.name;
-                            }
-                        }
-                        if (fname === 'info.xml') hasInfoXml = true;
-                        if (fname === 'g.html') hasGHtml = true;
-                    });
-                    
-                    let name = `_${gameId}_`;
-                    let desc = "No description provided.";
-                    let auth = "Unknown Author";
-                    
-                    if (hasInfoXml) {
+                    const xmlFile = files.find(f => f.toLowerCase() === 'info.xml');
+                    if (xmlFile) {
                         try {
-                            const xmlRes = await fetch(`https://raw.githubusercontent.com/Aaron201194/HTMLGAMES/main/games/${gameId}/info.xml`);
-                            if (xmlRes.ok) {
-                                const text = await xmlRes.text();
-                                const parser = new DOMParser();
-                                const xml = parser.parseFromString(text, "text/xml");
-                                
-                                const parsedName = xml.getElementsByTagName("name")[0]?.textContent;
-                                if (parsedName) name = parsedName;
-                                
-                                desc = xml.getElementsByTagName("desc")[0]?.textContent || desc;
-                                auth = xml.getElementsByTagName("auth")[0]?.textContent || auth;
-                            }
-                        } catch(e) {
-                            console.error("XML parse error for", gameId, e);
-                        }
+                            const xmlText = await (await fetch(`${folderRaw}/${xmlFile}`)).text();
+                            const xmlDoc = new DOMParser().parseFromString(xmlText, 'text/xml');
+                            const n = xmlDoc.querySelector('name')?.textContent?.trim();
+                            const d = xmlDoc.querySelector('desc')?.textContent?.trim();
+                            const a = xmlDoc.querySelector('auth')?.textContent?.trim();
+                            if (n) title = n;
+                            if (d) description = d;
+                            if (a) author = a;
+                        } catch (_) {}
                     }
-                    
-                    const iconUrl = iconFileName 
-                        ? `https://raw.githubusercontent.com/Aaron201194/HTMLGAMES/main/games/${gameId}/${iconFileName}` 
-                        : `https://placehold.co/400x400/1e293b/ffffff?text=NO+ICON`;
-                        
-                    const gameUrl = hasGHtml 
-                        ? `https://aaron201194.github.io/HTMLGAMES/games/${gameId}/g.html` 
-                        : 'about:blank';
-                        
-                    const downloadUrl = `https://github.com/Aaron201194/HTMLGAMES/tree/main/games/${gameId}`;
-                    
-                    loadedGames.push({
-                        id: gameId,
-                        title: name,
-                        description: desc,
-                        author: auth,
-                        iconUrl: iconUrl,
-                        gameUrl: gameUrl,
-                        downloadUrl: downloadUrl
+
+                    const iconFile = files.find(f => {
+                        const low = f.toLowerCase();
+                        return ICON_EXTS.some(ext => low === `icon.${ext}`) ||
+                               ICON_EXTS.some(ext => low.endsWith(`.${ext}`));
                     });
+                    const iconUrl = iconFile
+                        ? `${folderRaw}/${encodeURIComponent(iconFile)}`
+                        : `https://placehold.co/400x250/1e293b/38bdf8?text=${encodeURIComponent(title)}`;
+
+                    const playable = detectPlayableFile(files);
+                    const encodedFile = encodeURIComponent(playable.file);
+                    const rawFileUrl = `${folderRaw}/${encodedFile}`;
+                    const pagesFileUrl = `${PAGES_BASE}/games/${encodeURIComponent(folder)}/${encodedFile}`;
+
+                    return {
+                        id: folder,
+                        folder,
+                        files,
+                        title,
+                        description,
+                        author,
+                        iconUrl,
+                        playableFile: playable.file,
+                        fileType: playable.type,
+                        rawFileUrl,
+                        pagesFileUrl,
+                        repoUrl: `https://github.com/${CONFIG.owner}/${CONFIG.repo}/tree/${CONFIG.branch}/games/${encodeURIComponent(folder)}`
+                    };
+                }));
+
+                localStorage.setItem('htmlgames_cached_manifest', JSON.stringify(allGames));
+                renderGames(allGames);
+            } catch (err) {
+                console.error(err);
+                showStatus(err.message);
+                const cached = JSON.parse(localStorage.getItem('htmlgames_cached_manifest') || '[]');
+                if (cached.length) {
+                    allGames = cached;
+                    renderGames(allGames);
+                } else {
+                    loading.classList.add('hidden');
+                    empty.classList.remove('hidden');
                 }
-            } catch (e) {
-                console.error("Failed to fetch games from GitHub:", e);
-                document.getElementById('user-status').innerHTML += '<span class="text-rose-500 ml-2">GitHub API Limit Reached</span>';
-                // Optional fallback if needed
-                const fallbackIds = ['cyber-racer', 'pixel-dungeon'];
-                fallbackIds.forEach(id => loadedGames.push(getMockFallback(id)));
-            }
-            renderGrid();
-        }
-
-        function getMockFallback(gameId) {
-            return {
-                id: gameId,
-                title: `_${gameId}_`,
-                description: "This is a fallback game because GitHub API limit was reached.",
-                author: "Unknown Author",
-                iconUrl: `https://placehold.co/400x400/1e293b/ffffff?text=${gameId}`,
-                gameUrl: 'about:blank',
-                downloadUrl: '#'
-            };
-        }
-
-        function setupLikesListener() {
-            if (!db) return;
-            const globalLikesRef = collection(db, 'artifacts', appId, 'public', 'data', 'likes');
-            unsubGlobalLikes = onSnapshot(globalLikesRef, (snapshot) => {
-                snapshot.forEach(doc => {
-                    globalLikes[doc.id] = doc.data().count || 0;
-                });
-                updateUIWithData();
-            }, (error) => console.error("Global likes err:", error));
-        }
-
-        function setupFavoritesListener() {
-            if (!db || !currentUser) return;
-            const favsRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'favorites');
-            unsubFavorites = onSnapshot(favsRef, (snapshot) => {
-                userFavorites = {};
-                snapshot.forEach(doc => {
-                    if (doc.data().isFavorite) userFavorites[doc.id] = true;
-                });
-                updateUIWithData();
-                renderFavoritesSidebar();
-            }, (error) => console.error("Favorites err:", error));
-        }
-
-        function setupUserLikesListener() {
-            if (!db || !currentUser) return;
-            const userLikesRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'likes');
-            unsubLikes = onSnapshot(userLikesRef, (snapshot) => {
-                userLikes = {};
-                snapshot.forEach(doc => {
-                    if(doc.data().isLiked) {
-                        userLikes[doc.id] = true;
-                    }
-                });
-                updateUIWithData();
-            }, (error) => {
-                console.error("Error fetching user likes:", error);
-            });
-        }
-
-        // UI Updates
-        function updateUIWithData() {
-            // Update grid counts/icons if visible on cards
-            loadedGames.forEach(game => {
-                const likeBadge = document.getElementById(`grid-like-${game.id}`);
-                const favBadge = document.getElementById(`grid-fav-${game.id}`);
-                
-                if (likeBadge) {
-                    likeBadge.innerHTML = `<i class="fa-solid fa-heart mr-1"></i> ${globalLikes[game.id] || 0}`;
-                }
-                if (favBadge && userFavorites[game.id]) {
-                    favBadge.classList.remove('hidden');
-                } else if (favBadge) {
-                    favBadge.classList.add('hidden');
-                }
-            });
-
-            // Update sidebar if open
-            if (currentGameSelected) {
-                updateSidebarActions(currentGameSelected);
             }
         }
 
-        // Render Grid
-        function renderGrid() {
-            const grid = document.getElementById('game-grid');
+        function renderGames(games) {
+            const loading = document.getElementById('loadingState');
+            const grid = document.getElementById('gamesGrid');
+            const empty = document.getElementById('emptyState');
+
+            loading.classList.add('hidden');
             grid.innerHTML = '';
 
-            loadedGames.forEach(game => {
-                const card = document.createElement('div');
-                card.className = "game-card bg-slate-800 border border-slate-700 rounded-xl overflow-hidden cursor-pointer relative group flex flex-col";
-                card.onclick = () => openSidebar(game);
+            if (!games.length) {
+                grid.classList.add('hidden');
+                empty.classList.remove('hidden');
+                return;
+            }
 
+            empty.classList.add('hidden');
+            grid.classList.remove('hidden');
+
+            games.forEach(game => {
+                const likes = globalLikeCounts[game.id] || 0;
+                const isFav = userFavorites.includes(game.id);
+
+                const card = document.createElement('div');
+                card.className = 'game-card bg-slate-900 border border-slate-800 rounded-xl overflow-hidden cursor-pointer flex flex-col';
                 card.innerHTML = `
-                    <div class="relative pt-[100%] w-full bg-slate-900 border-b border-slate-700">
-                        <img src="${game.iconUrl}" alt="${game.title}" class="absolute inset-0 w-full h-full object-cover group-hover:opacity-80 transition-opacity" onerror="this.src='https://placehold.co/400x400/1e293b/ffffff?text=NO+ICON'">
-                        
-                        <!-- Favorite Badge Overlay -->
-                        <div id="grid-fav-${game.id}" class="absolute top-2 right-2 bg-yellow-500 text-slate-900 w-8 h-8 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(234,179,8,0.5)] ${userFavorites[game.id] ? '' : 'hidden'} transition-all z-10">
-                            <i class="fa-solid fa-star text-sm"></i>
-                        </div>
+                    <div class="relative aspect-video bg-slate-800 overflow-hidden">
+                        <img src="${game.iconUrl}" alt="${game.title}" class="w-full h-full object-cover" loading="lazy">
+                        <span class="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-xs text-sky-300 text-[10px] font-bold uppercase px-2 py-0.5 rounded border border-slate-700">${game.fileType}</span>
+                        ${isFav ? '<span class="absolute top-2 right-2 text-amber-400 drop-shadow"><i class="fa-solid fa-star"></i></span>' : ''}
                     </div>
-                    <div class="p-4 flex flex-col flex-grow justify-between">
-                        <h3 class="font-bold text-lg mb-1 truncate">${game.title}</h3>
-                        <div class="flex justify-between items-center text-sm text-slate-400 mt-2">
-                            <span class="bg-slate-700 px-2 py-1 rounded-md text-xs font-semibold text-cyan-400 max-w-[50%] truncate">${game.author}</span>
-                            <span id="grid-like-${game.id}" class="flex items-center text-rose-400 bg-rose-500/10 px-2 py-1 rounded-md font-bold">
-                                <i class="fa-solid fa-heart mr-1"></i> ${globalLikes[game.id] || 0}
-                            </span>
+                    <div class="p-3 flex-1 flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-sm text-white truncate">${game.title}</h3>
+                            <p class="text-xs text-slate-400 truncate mt-0.5">${game.author}</p>
+                        </div>
+                        <div class="flex items-center justify-between mt-3 pt-2 border-t border-slate-800/80 text-xs text-slate-400">
+                            <span><i class="fa-solid fa-heart text-rose-400 mr-1"></i>${likes}</span>
+                            <span class="text-sky-400 font-semibold">Play <i class="fa-solid fa-chevron-right text-[10px]"></i></span>
                         </div>
                     </div>
                 `;
+                card.addEventListener('click', () => openDetails(game));
                 grid.appendChild(card);
             });
         }
 
-        // Favorites Sidebar Logic
-        window.toggleFavoritesSidebar = function() {
-            const sidebar = document.getElementById('left-sidebar');
-            const overlay = document.getElementById('left-sidebar-overlay');
-            
-            if (sidebar.classList.contains('-translate-x-full')) {
-                // Open
-                renderFavoritesSidebar();
-                overlay.classList.remove('hidden');
-                setTimeout(() => {
-                    overlay.classList.remove('opacity-0');
-                    sidebar.classList.remove('-translate-x-full');
-                }, 10);
-            } else {
-                // Close
-                sidebar.classList.add('-translate-x-full');
-                overlay.classList.add('opacity-0');
-                setTimeout(() => {
-                    overlay.classList.add('hidden');
-                }, 300);
-            }
+        function openDetails(game) {
+            selectedGame = game;
+            document.getElementById('detailTitle').textContent = game.title;
+            document.getElementById('detailAuthor').textContent = game.author;
+            document.getElementById('detailDesc').textContent = game.description;
+            document.getElementById('detailIcon').src = game.iconUrl;
+            document.getElementById('detailFormatBadge').textContent = game.fileType.toUpperCase();
+            document.getElementById('downloadBtn').href = game.repoUrl;
+
+            updateDetailButtons();
+
+            document.getElementById('detailsBackdrop').classList.remove('hidden');
+            document.getElementById('detailsSidebar').classList.remove('translate-x-full');
+        }
+
+        function closeDetails() {
+            document.getElementById('detailsBackdrop').classList.add('hidden');
+            document.getElementById('detailsSidebar').classList.add('translate-x-full');
+        }
+
+        function updateDetailButtons() {
+            if (!selectedGame) return;
+            const liked = !!userLikes[selectedGame.id];
+            const fav = userFavorites.includes(selectedGame.id);
+            const count = globalLikeCounts[selectedGame.id] || 0;
+
+            document.getElementById('likeIcon').className = liked
+                ? 'fa-solid fa-heart text-rose-500'
+                : 'fa-regular fa-heart text-rose-400';
+            document.getElementById('likeText').textContent = liked ? 'Liked' : 'Like';
+            document.getElementById('likeCount').textContent = count;
+
+            document.getElementById('favIcon').className = fav
+                ? 'fa-solid fa-star text-amber-400'
+                : 'fa-regular fa-star text-amber-400';
+            document.getElementById('favText').textContent = fav ? 'Favorited' : 'Favorite';
         }
 
         function renderFavoritesSidebar() {
-            const container = document.getElementById('favorites-list');
-            if (!container) return;
-            container.innerHTML = '';
-            
-            const favoriteGames = loadedGames.filter(g => userFavorites[g.id]);
-            
-            if (favoriteGames.length === 0) {
-                container.innerHTML = `
-                    <div class="text-slate-500 text-center mt-12 flex flex-col items-center">
-                        <i class="fa-regular fa-star text-5xl mb-4 opacity-50"></i>
-                        <p class="font-bold arcade-font">No favorites yet.</p>
-                        <p class="text-sm mt-2 max-w-[200px]">Log in and star some games to quickly access them here!</p>
-                    </div>
-                `;
+            const list = document.getElementById('favoritesList');
+            list.innerHTML = '';
+
+            const favGames = allGames.filter(g => userFavorites.includes(g.id));
+            if (!favGames.length) {
+                list.innerHTML = '<p class="text-sm text-slate-400 text-center py-10">No favorite games yet.</p>';
                 return;
             }
 
-            favoriteGames.forEach(game => {
+            favGames.forEach(game => {
                 const item = document.createElement('div');
-                item.className = "bg-slate-900 border border-slate-700 p-3 rounded-xl flex items-center gap-4 cursor-pointer hover:bg-slate-700 hover:border-cyan-500 transition-all group shadow-md";
-                item.onclick = () => {
-                    toggleFavoritesSidebar();
-                    openSidebar(game);
-                };
-                
+                item.className = 'flex items-center gap-3 p-2 rounded-lg bg-slate-800/70 hover:bg-slate-800 border border-slate-700/70 cursor-pointer transition';
                 item.innerHTML = `
-                    <img src="${game.iconUrl}" class="w-16 h-16 rounded-lg object-cover group-hover:scale-105 transition-transform border border-slate-700" onerror="this.src='https://placehold.co/400x400/1e293b/ffffff?text=NO+ICON'">
-                    <div class="flex-grow overflow-hidden">
-                        <h4 class="font-bold text-cyan-400 arcade-font text-sm truncate">${game.title}</h4>
-                        <div class="text-xs text-slate-400 mt-2 flex justify-between items-center pr-2">
-                            <span class="truncate max-w-[90px] uppercase font-bold text-[10px]">${game.author}</span>
-                            <span class="text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded font-bold"><i class="fa-solid fa-heart text-[10px]"></i> ${globalLikes[game.id] || 0}</span>
-                        </div>
+                    <img src="${game.iconUrl}" class="w-14 h-10 object-cover rounded bg-slate-900">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-bold text-white truncate">${game.title}</p>
+                        <p class="text-xs text-slate-400 truncate">${game.author}</p>
                     </div>
                 `;
-                container.appendChild(item);
+                item.addEventListener('click', () => {
+                    closeFavorites();
+                    openDetails(game);
+                });
+                list.appendChild(item);
             });
         }
 
-        // Sidebar Logic (Exposed to window for inline onclick)
-        window.openSidebar = function(game) {
-            currentGameSelected = game;
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            const content = document.getElementById('sidebar-content');
+        function openFavorites() {
+            renderFavoritesSidebar();
+            document.getElementById('favBackdrop').classList.remove('hidden');
+            document.getElementById('favoritesSidebar').classList.remove('-translate-x-full');
+        }
 
-            // Build Sidebar Content
-            content.innerHTML = `
-                <div class="mt-6 flex flex-col items-center">
-                    <img src="${game.iconUrl}" class="w-40 h-40 rounded-2xl shadow-xl border-4 border-slate-700 mb-4 object-cover" alt="icon" onerror="this.src='https://placehold.co/400x400/1e293b/ffffff?text=NO+ICON'">
-                    <h2 class="text-3xl font-bold arcade-font text-center mb-1">${game.title}</h2>
-                    <p class="text-cyan-400 text-sm font-semibold tracking-wide uppercase mb-4"><i class="fa-solid fa-code"></i> ${game.author}</p>
-                    <div class="flex gap-4 mb-6">
-                        <div class="bg-slate-700/50 px-4 py-2 rounded-lg text-sm text-center">
-                            <div class="text-slate-400 text-xs uppercase tracking-wider mb-1">Global Likes</div>
-                            <div id="sidebar-like-count" class="font-bold text-rose-400 text-lg">
-                                <i class="fa-solid fa-heart"></i> ${globalLikes[game.id] || 0}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        function closeFavorites() {
+            document.getElementById('favBackdrop').classList.add('hidden');
+            document.getElementById('favoritesSidebar').classList.add('-translate-x-full');
+        }
 
-                <!-- Action Buttons -->
-                <div class="flex flex-col gap-3">
-                    <button onclick="playGame('${game.id}')" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-4 rounded-xl text-lg transition-colors shadow-[0_0_15px_rgba(6,182,212,0.4)] flex justify-center items-center gap-2">
-                        <i class="fa-solid fa-play"></i> PLAY NOW
-                    </button>
-                    
-                    <a href="${game.downloadUrl || '#'}" target="_blank" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors shadow-[0_0_10px_rgba(16,185,129,0.3)] flex justify-center items-center gap-2">
-                        <i class="fa-solid fa-download"></i> DOWNLOAD FILES
-                    </a>
-                    
-                    <div class="flex gap-3">
-                        <button onclick="toggleLike('${game.id}')" id="btn-like" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-xl transition-colors border border-slate-600 flex justify-center items-center gap-2">
-                            <i class="fa-regular fa-heart text-rose-400"></i> Like
-                        </button>
-                        <button onclick="toggleFavorite('${game.id}')" id="btn-fav" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-xl transition-colors border border-slate-600 flex justify-center items-center gap-2">
-                            <i class="fa-regular fa-star text-yellow-400"></i> Favorite
-                        </button>
-                    </div>
-                </div>
+        function buildRuntimeHTML(game) {
+            const url = game.rawFileUrl;
+            const ext = game.playableFile.split('.').pop().toLowerCase();
 
-                <!-- Info.txt Content -->
-                <div class="mt-6">
-                    <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-2 font-bold border-b border-slate-700 pb-2">Description</h3>
-                    <p class="text-slate-300 leading-relaxed text-sm bg-slate-900/50 p-4 rounded-xl border border-slate-700">
-                        ${game.description}
-                    </p>
-                </div>
-            `;
+            if (game.fileType === 'scratch') {
+                const embedUrl = `https://turbowarp.org/embed?project_url=${encodeURIComponent(url)}`;
+                return `<iframe src="${embedUrl}" class="w-full h-full border-0" allowfullscreen></iframe>`;
+            }
 
-            updateSidebarActions(game);
+            if (game.fileType === 'flash') {
+                return `
+                    <!DOCTYPE html><html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;">
+                    <script src="https://unpkg.com/@ruffle-rs/ruffle"><\/script>
+                    <div id="container" style="width:100%;height:100%;"></div>
+                    <script>
+                        window.RufflePlayer = window.RufflePlayer || {};
+                        const ruffle = window.RufflePlayer.newest();
+                        const player = ruffle.createPlayer();
+                        player.style.width = "100%"; player.style.height = "100%";
+                        document.getElementById("container").appendChild(player);
+                        player.load("${url}");
+                    <\/script></body></html>`;
+            }
 
-            // Show UI
+            if (game.fileType === 'rom') {
+                const core = ROM_CORES[ext] || 'nes';
+                return `
+                    <!DOCTYPE html><html><body style="margin:0;background:#000;height:100vh;">
+                    <div style="width:100%;height:100%"><div id="game"></div></div>
+                    <script>
+                        EJS_player = "#game";
+                        EJS_core = "${core}";
+                        EJS_gameUrl = "${url}";
+                        EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/";
+                    <\/script>
+                    <script src="https://cdn.emulatorjs.org/stable/data/loader.js"><\/script>
+                    </body></html>`;
+            }
+
+            if (game.fileType === 'exe') {
+                return `
+                    <!DOCTYPE html><html><head>
+                    <link rel="stylesheet" href="https://v8.js-dos.com/latest/js-dos.css">
+                    <script src="https://v8.js-dos.com/latest/js-dos.js"><\/script>
+                    </head><body style="margin:0;background:#000;color:#fff;font-family:sans-serif;height:100vh;display:flex;flex-direction:column;">
+                    <div id="dos" style="width:100%;height:100%;"></div>
+                    <script>
+                        (async () => {
+                            const res = await fetch("${url}");
+                            const buf = await res.arrayBuffer();
+                            const bytes = new Uint8Array(buf);
+                            const peOffset = bytes[0x3c] | (bytes[0x3d] << 8);
+                            const isWin32 = bytes[peOffset] === 0x50 && bytes[peOffset + 1] === 0x45;
+                            if (isWin32) {
+                                document.body.innerHTML = '<div style="margin:auto;text-align:center;max-width:460px;padding:24px;"><h2>Windows 32/64-bit Executable Detected</h2><p style="color:#94a3b8;">Modern Win32/DirectX .exe files cannot run natively in browser DOSBox. Download the executable to run on Windows.</p><a href="${url}" download style="display:inline-block;margin-top:12px;padding:10px 20px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">Download ${game.playableFile}</a></div>';
+                                return;
+                            }
+                            Dos(document.getElementById("dos"), { url: "${url}" });
+                        })();
+                    <\/script></body></html>`;
+            }
+
+            if (game.fileType === 'python') {
+                return `
+                    <!DOCTYPE html><html><body style="margin:0;background:#0f172a;color:#e2e8f0;font-family:monospace;padding:16px;">
+                    <pre id="out">Loading Python (Pyodide)...</pre>
+                    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"><\/script>
+                    <script>
+                        (async () => {
+                            const pyodide = await loadPyodide();
+                            const code = await (await fetch("${url}")).text();
+                            document.getElementById("out").textContent = "";
+                            pyodide.setStdout({ batched: s => document.getElementById("out").textContent += s + "\\n" });
+                            await pyodide.runPythonAsync(code);
+                        })();
+                    <\/script></body></html>`;
+            }
+
+            if (game.fileType === 'lua') {
+                return `
+                    <!DOCTYPE html><html><body style="margin:0;background:#0f172a;color:#e2e8f0;font-family:monospace;padding:16px;">
+                    <script src="https://cdn.jsdelivr.net/npm/fengari-web@0.1.4/dist/fengari-web.js"><\/script>
+                    <script>
+                        fetch("${url}").then(r => r.text()).then(code => fengari.load(code)());
+                    <\/script></body></html>`;
+            }
+
+            if (game.fileType === 'js') {
+                return `
+                    <!DOCTYPE html><html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;">
+                    <canvas id="gameCanvas" width="800" height="600" style="max-width:100%;max-height:100%;"></canvas>
+                    <script src="${url}"><\/script>
+                    </body></html>`;
+            }
+
+            return null;
+        }
+
+        function launchGame(game) {
+            closeDetails();
+            const overlay = document.getElementById('playerOverlay');
+            const container = document.getElementById('playerContainer');
+            document.getElementById('playerTitle').textContent = game.title;
+            container.innerHTML = '';
+
+            if (game.fileType === 'html') {
+                const iframe = document.createElement('iframe');
+                iframe.src = game.pagesFileUrl;
+                iframe.className = 'w-full h-full border-0';
+                iframe.allowFullscreen = true;
+                container.appendChild(iframe);
+            } else if (game.fileType === 'scratch') {
+                container.innerHTML = buildRuntimeHTML(game);
+            } else {
+                const srcdoc = buildRuntimeHTML(game);
+                const iframe = document.createElement('iframe');
+                iframe.srcdoc = srcdoc;
+                iframe.className = 'w-full h-full border-0';
+                iframe.allowFullscreen = true;
+                container.appendChild(iframe);
+            }
+
             overlay.classList.remove('hidden');
-            // Small delay to allow block render before transition
-            setTimeout(() => {
-                overlay.classList.remove('opacity-0');
-                sidebar.classList.remove('translate-x-full');
-            }, 10);
+            overlay.classList.add('flex');
         }
 
-        window.closeSidebar = function() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-
-            sidebar.classList.add('translate-x-full');
-            overlay.classList.add('opacity-0');
-            
-            setTimeout(() => {
-                overlay.classList.add('hidden');
-                currentGameSelected = null;
-            }, 300);
+        function closePlayer() {
+            const overlay = document.getElementById('playerOverlay');
+            document.getElementById('playerContainer').innerHTML = '';
+            overlay.classList.add('hidden');
+            overlay.classList.remove('flex');
         }
 
-        function updateSidebarActions(game) {
-            const btnLike = document.getElementById('btn-like');
-            const btnFav = document.getElementById('btn-fav');
-            const countDisplay = document.getElementById('sidebar-like-count');
-
-            if (!btnLike || !btnFav) return;
-
-            if (userLikes[game.id]) {
-                btnLike.innerHTML = `<i class="fa-solid fa-heart text-rose-400"></i> Liked`;
-                btnLike.classList.add('bg-slate-600', 'border-rose-500/50');
+        // Event Listeners
+        document.getElementById('likeBtn').addEventListener('click', () => {
+            if (!selectedGame) return;
+            const id = selectedGame.id;
+            if (userLikes[id]) {
+                delete userLikes[id];
+                globalLikeCounts[id] = Math.max(0, (globalLikeCounts[id] || 1) - 1);
             } else {
-                btnLike.innerHTML = `<i class="fa-regular fa-heart text-rose-400"></i> Like`;
-                btnLike.classList.remove('bg-slate-600', 'border-rose-500/50');
+                userLikes[id] = true;
+                globalLikeCounts[id] = (globalLikeCounts[id] || 0) + 1;
             }
-            
-            if (userFavorites[game.id]) {
-                btnFav.innerHTML = `<i class="fa-solid fa-star text-yellow-400"></i> Favorited`;
-                btnFav.classList.add('bg-slate-600', 'border-yellow-500/50');
+            saveLocalState();
+            updateDetailButtons();
+            renderGames(allGames);
+        });
+
+        document.getElementById('favBtn').addEventListener('click', () => {
+            if (!selectedGame) return;
+            const id = selectedGame.id;
+            const idx = userFavorites.indexOf(id);
+            if (idx > -1) {
+                userFavorites.splice(idx, 1);
             } else {
-                btnFav.innerHTML = `<i class="fa-regular fa-star text-yellow-400"></i> Favorite`;
-                btnFav.classList.remove('bg-slate-600', 'border-yellow-500/50');
+                userFavorites.push(id);
             }
+            saveLocalState();
+            updateDetailButtons();
+            renderGames(allGames);
+        });
 
-            if (countDisplay) {
-                countDisplay.innerHTML = `<i class="fa-solid fa-heart"></i> ${globalLikes[game.id] || 0}`;
-            }
-        }
+        document.getElementById('playBtn').addEventListener('click', () => {
+            if (selectedGame) launchGame(selectedGame);
+        });
 
-        // Action Handlers
-        window.toggleLike = async function(gameId) {
-            if (!currentUser || !db) {
-                openAuthModal();
-                return;
-            }
+        document.getElementById('closePlayerBtn').addEventListener('click', closePlayer);
+        document.getElementById('fullscreenBtn').addEventListener('click', () => {
+            const container = document.getElementById('playerContainer');
+            if (container.requestFullscreen) container.requestFullscreen();
+        });
 
-            try {
-                const userLikeRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'likes', gameId);
-                const globalLikeRef = doc(db, 'artifacts', appId, 'public', 'data', 'likes', gameId);
-                
-                const isLiked = userLikes[gameId] || false;
-                
-                // Read global count
-                const docSnap = await getDoc(globalLikeRef);
-                let currentCount = docSnap.exists() ? (docSnap.data().count || 0) : 0;
+        document.getElementById('toggleFavoritesBtn').addEventListener('click', openFavorites);
+        document.getElementById('closeFavSidebar').addEventListener('click', closeFavorites);
+        document.getElementById('favBackdrop').addEventListener('click', closeFavorites);
 
-                if (isLiked) {
-                    // Remove Like
-                    await setDoc(userLikeRef, { isLiked: false }, { merge: true });
-                    userLikes[gameId] = false;
-                    currentCount = Math.max(0, currentCount - 1);
-                    await setDoc(globalLikeRef, { count: currentCount }, { merge: true });
-                } else {
-                    // Add Like
-                    await setDoc(userLikeRef, { isLiked: true }, { merge: true });
-                    userLikes[gameId] = true;
-                    currentCount += 1;
-                    await setDoc(globalLikeRef, { count: currentCount }, { merge: true });
-                }
-                
-                // Optimistic UI update
-                globalLikes[gameId] = currentCount;
-                updateUIWithData();
-                
-            } catch (error) {
-                console.error("Error toggling like:", error);
-            }
-        }
+        document.getElementById('closeDetailsSidebar').addEventListener('click', closeDetails);
+        document.getElementById('detailsBackdrop').addEventListener('click', closeDetails);
+        document.getElementById('refreshBtn').addEventListener('click', loadGamesFromManifest);
 
-        window.toggleFavorite = async function(gameId) {
-            if (!currentUser || !db) {
-                 openAuthModal();
-                 return;
-            }
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase().trim();
+            const filtered = allGames.filter(g =>
+                g.title.toLowerCase().includes(q) ||
+                g.author.toLowerCase().includes(q) ||
+                g.fileType.toLowerCase().includes(q)
+            );
+            renderGames(filtered);
+        });
 
-            try {
-                const favDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'favorites', gameId);
-                const isFav = userFavorites[gameId] || false;
-
-                if (isFav) {
-                    // Remove favorite
-                    await setDoc(favDocRef, { isFavorite: false }, { merge: true });
-                    userFavorites[gameId] = false;
-                } else {
-                    // Add favorite
-                    await setDoc(favDocRef, { isFavorite: true }, { merge: true });
-                    userFavorites[gameId] = true;
-                }
-                
-                updateUIWithData();
-
-            } catch (error) {
-                console.error("Error toggling favorite:", error);
-            }
-        }
-
-        // Iframe Game Player Logic
-        window.playGame = function(gameId) {
-            const game = loadedGames.find(g => g.id === gameId);
-            if (!game) return;
-
-            const player = document.getElementById('game-player');
-            const iframe = document.getElementById('game-iframe');
-            const title = document.getElementById('player-title');
-            
-            title.innerText = game.title;
-            
-            // Show Player Overlay
-            player.classList.remove('hidden');
-            player.classList.add('flex');
-            
-            iframe.classList.add('hidden');
-            
-            if (game.gameUrl !== 'about:blank') {
-                // If it's a real hosted game, load it directly
-                setTimeout(() => {
-                    iframe.src = game.gameUrl;
-                    iframe.classList.remove('hidden');
-                }, 800);
-            } else {
-                // Mock preview fallback
-                const mockGameHTML = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <style>
-                            body { margin: 0; background: #000; color: #06b6d4; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-                            h1 { font-size: 3rem; text-transform: uppercase; text-shadow: 0 0 10px #06b6d4; margin-bottom: 10px; text-align: center;}
-                            p { color: #fff; font-size: 1.2rem; text-align: center;}
-                            .author { color: #f59e0b; margin-top: 10px; font-weight: bold;}
-                            .btn { margin-top: 20px; padding: 15px 30px; background: #06b6d4; color: #000; border: none; font-size: 1.5rem; font-weight: bold; border-radius: 8px; cursor: pointer;}
-                            .btn:hover { background: #fff;}
-                        </style>
-                    </head>
-                    <body>
-                        <h1>${game.title}</h1>
-                        <p>Loading simulated: <b>/games/${game.id}/g.html</b></p>
-                        <p class="author">By ${game.author}</p>
-                        <button class="btn" onclick="this.innerText = 'SCORE: ' + Math.floor(Math.random()*1000)">CLICK TO PLAY</button>
-                    </body>
-                    </html>
-                `;
-                
-                setTimeout(() => {
-                    iframe.src = "data:text/html;charset=utf-8," + encodeURIComponent(mockGameHTML);
-                    iframe.classList.remove('hidden');
-                }, 800);
-            }
-        }
-
-        window.closeGame = function() {
-            const player = document.getElementById('game-player');
-            const iframe = document.getElementById('game-iframe');
-            
-            player.classList.add('hidden');
-            player.classList.remove('flex');
-            iframe.src = 'about:blank'; // Stop audio/execution
-            iframe.classList.add('hidden');
-            
-            if (document.fullscreenElement) {
-                document.exitFullscreen().catch(()=>{});
-            }
-        }
-        
-        window.toggleFullscreen = function() {
-            const iframe = document.getElementById('game-iframe');
-            if (!document.fullscreenElement) {
-                iframe.requestFullscreen().catch(err => {
-                    showToast(`Fullscreen error: ${err.message}`);
-                });
-            } else {
-                document.exitFullscreen().catch(()=>{});
-            }
-        }
-
-        // Utility: Toast messaging
-        function showToast(msg) {
-            const toast = document.createElement('div');
-            toast.className = "fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-lg z-[200] text-sm border border-slate-700 animate-bounce";
-            toast.innerText = msg;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        }
-
-        // Start
-        window.addEventListener('DOMContentLoaded', init);
-
+        updateFavBadge();
+        loadGamesFromManifest();
     </script>
 </body>
 </html>
