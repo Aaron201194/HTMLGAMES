@@ -4,8 +4,7 @@
     "files": [
       "AngryBirds.exe",
       "AppUpWrapper.dll",
-      "config.lua",
-      "data"
+      "config.lua"
     ]
   },
   {
