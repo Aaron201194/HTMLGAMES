@@ -48,7 +48,7 @@
             <div class="flex-1 max-w-md">
                 <div class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                    <input type="text" id="searchInput" placeholder="Search games, authors, formats..."
+                    <input type="text" id="searchInput" placeholder="Search games, authors, formats, files..."
                         class="w-full bg-slate-800/80 border border-slate-700 rounded-lg pl-9 pr-4 py-1.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-sky-400">
                 </div>
             </div>
@@ -98,8 +98,11 @@
     <div id="detailsBackdrop" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 hidden"></div>
     <aside id="detailsSidebar" class="fixed top-0 right-0 h-full w-full max-w-md bg-slate-900 border-l border-slate-800 z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
         <div class="p-4 border-b border-slate-800 flex items-center justify-between">
-            <span id="detailFormatBadge" class="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">HTML</span>
-            <button id="closeDetailsSidebar" class="text-slate-400 hover:text-white p-1">
+            <div class="flex items-center gap-2 min-w-0">
+                <span id="detailFormatBadge" class="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 shrink-0">HTML</span>
+                <span id="detailMainFile" class="text-xs text-slate-400 font-mono truncate">g.html</span>
+            </div>
+            <button id="closeDetailsSidebar" class="text-slate-400 hover:text-white p-1 shrink-0">
                 <i class="fa-solid fa-xmark text-xl"></i>
             </button>
         </div>
@@ -166,22 +169,8 @@
     </div>
 
     <script>
-        const CONFIG = {
-            owner: 'Aaron201194',
-            repo: 'HTMLGAMES',
-            branch: 'main'
-        };
-
-        const RAW_BASE = `https://raw.githubusercontent.com/${CONFIG.owner}/${CONFIG.repo}/${CONFIG.branch}`;
-        const PAGES_BASE = `https://${CONFIG.owner.toLowerCase()}.github.io/${CONFIG.repo}`;
-
-        let allGames = [];
-        let selectedGame = null;
-        let userLikes = JSON.parse(localStorage.getItem('htmlgames_likes') || '{}');
-        let userFavorites = JSON.parse(localStorage.getItem('htmlgames_favorites') || '[]');
-        let globalLikeCounts = JSON.parse(localStorage.getItem('htmlgames_like_counts') || '{}');
-
         const ICON_EXTS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg', 'ico'];
+        const GENERIC_ENTRY_NAMES = ['g', 'index', 'game', 'main', 'app', 'play'];
         const ROM_CORES = {
             z64: 'n64', n64: 'n64', v64: 'n64',
             nes: 'nes', fds: 'nes',
@@ -193,6 +182,62 @@
             a26: 'atari2600', a78: 'atari7800', lnx: 'lynx',
             ngp: 'ngp', ngc: 'ngp', ws: 'ws', wsc: 'ws'
         };
+
+        const CONFIG = {
+            owner: 'Aaron201194',
+            repo: 'HTMLGAMES',
+            branch: 'main',
+            manifestFile: 'games.json',
+            gamesFolder: 'games',
+            mainFilePriority: ['g.html', 'index.html', 'game.html', 'main.html'],
+            getMainFile(files, folder, xmlMeta = {}) {
+                const lowerMap = files.map(f => ({ orig: f, low: f.toLowerCase() }));
+
+                // 1. Explicit <main> or <file> tag from info.xml
+                if (xmlMeta.mainFile) {
+                    const explicit = lowerMap.find(f => f.low === xmlMeta.mainFile.toLowerCase());
+                    if (explicit) return explicit.orig;
+                }
+
+                // 2. Configured priority HTML entry files
+                for (const target of this.mainFilePriority) {
+                    const match = lowerMap.find(f => f.low === target.toLowerCase());
+                    if (match) return match.orig;
+                }
+
+                // 3. Any other HTML file
+                const anyHtml = lowerMap.find(f => f.low.endsWith('.html') || f.low.endsWith('.htm'));
+                if (anyHtml) return anyHtml.orig;
+
+                // 4. Supported non-HTML playable extensions
+                const playableExts = [
+                    '.sb3', '.sb2', '.swf', '.p8.png', '.p8', '.love',
+                    '.py', '.lua', '.exe', '.com', '.bat',
+                    ...Object.keys(ROM_CORES).map(ext => `.${ext}`),
+                    '.js'
+                ];
+                for (const ext of playableExts) {
+                    const match = lowerMap.find(f => f.low.endsWith(ext));
+                    if (match) return match.orig;
+                }
+
+                // 5. Fallback to first non-metadata / non-icon file
+                const fallback = lowerMap.find(f =>
+                    f.low !== 'info.xml' &&
+                    !ICON_EXTS.some(ext => f.low === `icon.${ext}` || f.low.endsWith(`.${ext}`))
+                );
+                return fallback ? fallback.orig : (files[0] || 'g.html');
+            }
+        };
+
+        const RAW_BASE = `https://raw.githubusercontent.com/${CONFIG.owner}/${CONFIG.repo}/${CONFIG.branch}`;
+        const PAGES_BASE = `https://${CONFIG.owner.toLowerCase()}.github.io/${CONFIG.repo}`;
+
+        let allGames = [];
+        let selectedGame = null;
+        let userLikes = JSON.parse(localStorage.getItem('htmlgames_likes') || '{}');
+        let userFavorites = JSON.parse(localStorage.getItem('htmlgames_favorites') || '[]');
+        let globalLikeCounts = JSON.parse(localStorage.getItem('htmlgames_like_counts') || '{}');
 
         function saveLocalState() {
             localStorage.setItem('htmlgames_likes', JSON.stringify(userLikes));
@@ -211,36 +256,84 @@
             banner.classList.remove('hidden');
         }
 
-        function detectPlayableFile(files) {
-            const lowerMap = files.map(f => ({ orig: f, low: f.toLowerCase() }));
-
-            // Priority 1: g.html or index.html
-            for (const target of ['g.html', 'index.html', 'game.html']) {
-                const match = lowerMap.find(f => f.low === target);
-                if (match) return { file: match.orig, type: 'html' };
+        function parseMainFileParts(mainFile) {
+            const low = mainFile.toLowerCase();
+            if (low.endsWith('.p8.png')) {
+                return { baseName: mainFile.slice(0, -7), ext: 'p8.png' };
             }
-            const anyHtml = lowerMap.find(f => f.low.endsWith('.html') || f.low.endsWith('.htm'));
-            if (anyHtml) return { file: anyHtml.orig, type: 'web' };
+            const dotIdx = mainFile.lastIndexOf('.');
+            if (dotIdx > 0) {
+                return {
+                    baseName: mainFile.slice(0, dotIdx),
+                    ext: mainFile.slice(dotIdx + 1).toLowerCase()
+                };
+            }
+            return { baseName: mainFile, ext: '' };
+        }
 
-            // Priority 2: Scratch, Flash, Pico-8, Love2D, Python, Lua, DOS/EXE, ROMs, JS
-            const checks = [
-                { test: l => l.endsWith('.sb3') || l.endsWith('.sb2'), type: 'scratch' },
-                { test: l => l.endsWith('.swf'), type: 'flash' },
-                { test: l => l.endsWith('.p8.png') || l.endsWith('.p8'), type: 'pico8' },
-                { test: l => l.endsWith('.love'), type: 'love2d' },
-                { test: l => l.endsWith('.py'), type: 'python' },
-                { test: l => l.endsWith('.lua'), type: 'lua' },
-                { test: l => l.endsWith('.exe') || l.endsWith('.com') || l.endsWith('.bat'), type: 'exe' },
-                { test: l => Object.keys(ROM_CORES).some(ext => l.endsWith('.' + ext)), type: 'rom' },
-                { test: l => l.endsWith('.js'), type: 'javascript' }
-            ];
+        function identifyFromMainFile(mainFile, folder, xmlMeta = {}) {
+            const { baseName, ext } = parseMainFileParts(mainFile);
+            const cleanedBase = baseName.replace(/[_-]+/g, ' ').trim();
+            const isGenericName = !cleanedBase || GENERIC_ENTRY_NAMES.includes(cleanedBase.toLowerCase());
 
-            for (const rule of checks) {
-                const match = lowerMap.find(f => rule.test(f.low));
-                if (match) return { file: match.orig, type: rule.type };
+            // What to call the game (info.xml <name> overrides; otherwise derived from mainFile, falling back to folder for generic entry names)
+            const title = xmlMeta.name || (isGenericName ? `_${folder}_` : cleanedBase);
+
+            // How to load & label the game based on mainFile extension
+            let runtime = 'unknown';
+            let core = null;
+            let formatLabel = ext ? ext.toUpperCase() : 'FILE';
+
+            if (ext === 'html' || ext === 'htm') {
+                runtime = 'html';
+                formatLabel = 'HTML';
+            } else if (ext === 'sb3' || ext === 'sb2') {
+                runtime = 'scratch';
+                formatLabel = 'SCRATCH';
+            } else if (ext === 'swf') {
+                runtime = 'flash';
+                formatLabel = 'FLASH';
+            } else if (ext === 'p8.png' || ext === 'p8') {
+                runtime = 'pico8';
+                formatLabel = 'PICO-8';
+            } else if (ext === 'love') {
+                runtime = 'love2d';
+                formatLabel = 'LOVE2D';
+            } else if (ext === 'py') {
+                runtime = 'python';
+                formatLabel = 'PYTHON';
+            } else if (ext === 'lua') {
+                runtime = 'lua';
+                formatLabel = 'LUA';
+            } else if (ext === 'exe' || ext === 'com' || ext === 'bat') {
+                runtime = 'dos';
+                formatLabel = ext.toUpperCase();
+            } else if (ROM_CORES[ext]) {
+                runtime = 'rom';
+                core = ROM_CORES[ext];
+                formatLabel = ext.toUpperCase();
+            } else if (ext === 'js') {
+                runtime = 'javascript';
+                formatLabel = 'JS';
             }
 
-            return { file: 'g.html', type: 'html' };
+            const encodedFolder = encodeURIComponent(folder);
+            const encodedFile = encodeURIComponent(mainFile);
+            const rawFileUrl = `${RAW_BASE}/${CONFIG.gamesFolder}/${encodedFolder}/${encodedFile}`;
+            const pagesFileUrl = `${PAGES_BASE}/${CONFIG.gamesFolder}/${encodedFolder}/${encodedFile}`;
+            const repoUrl = `https://github.com/${CONFIG.owner}/${CONFIG.repo}/tree/${CONFIG.branch}/${CONFIG.gamesFolder}/${encodedFolder}`;
+
+            return {
+                mainFile,
+                ext,
+                title,
+                runtime,
+                core,
+                formatLabel,
+                rawFileUrl,
+                pagesFileUrl,
+                repoUrl
+            };
         }
 
         async function loadGamesFromManifest() {
@@ -254,59 +347,57 @@
             document.getElementById('statusBanner').classList.add('hidden');
 
             try {
-                const res = await fetch(`${RAW_BASE}/games.json?t=${Date.now()}`);
+                const res = await fetch(`${RAW_BASE}/${CONFIG.manifestFile}?t=${Date.now()}`);
                 if (!res.ok) {
-                    throw new Error(`games.json not found (${res.status}). Run the "Build Games Manifest" GitHub Action first.`);
+                    throw new Error(`${CONFIG.manifestFile} not found (${res.status}). Run the "Build Games Manifest" GitHub Action first.`);
                 }
                 const manifest = await res.json();
 
                 allGames = await Promise.all(manifest.map(async ({ folder, files }) => {
-                    const folderRaw = `${RAW_BASE}/games/${encodeURIComponent(folder)}`;
-                    let title = `_${folder}_`;
-                    let description = 'No description available.';
-                    let author = 'Unknown';
+                    const folderRaw = `${RAW_BASE}/${CONFIG.gamesFolder}/${encodeURIComponent(folder)}`;
+                    const xmlMeta = { name: '', description: '', author: '', mainFile: '' };
 
                     const xmlFile = files.find(f => f.toLowerCase() === 'info.xml');
                     if (xmlFile) {
                         try {
-                            const xmlText = await (await fetch(`${folderRaw}/${xmlFile}`)).text();
+                            const xmlText = await (await fetch(`${folderRaw}/${encodeURIComponent(xmlFile)}`)).text();
                             const xmlDoc = new DOMParser().parseFromString(xmlText, 'text/xml');
-                            const n = xmlDoc.querySelector('name')?.textContent?.trim();
-                            const d = xmlDoc.querySelector('desc')?.textContent?.trim();
-                            const a = xmlDoc.querySelector('auth')?.textContent?.trim();
-                            if (n) title = n;
-                            if (d) description = d;
-                            if (a) author = a;
+                            xmlMeta.name = xmlDoc.querySelector('name')?.textContent?.trim() || '';
+                            xmlMeta.description = xmlDoc.querySelector('desc')?.textContent?.trim() || '';
+                            xmlMeta.author = xmlDoc.querySelector('auth')?.textContent?.trim() || '';
+                            xmlMeta.mainFile = (xmlDoc.querySelector('main')?.textContent || xmlDoc.querySelector('file')?.textContent || '').trim();
                         } catch (_) {}
                     }
 
-                    const iconFile = files.find(f => {
-                        const low = f.toLowerCase();
-                        return ICON_EXTS.some(ext => low === `icon.${ext}`) ||
-                               ICON_EXTS.some(ext => low.endsWith(`.${ext}`));
-                    });
+                    // Get the main file via CONFIG and derive all game identification from it
+                    const mainFile = CONFIG.getMainFile(files, folder, xmlMeta);
+                    const identified = identifyFromMainFile(mainFile, folder, xmlMeta);
+
+                    const iconFile =
+                        files.find(f => ICON_EXTS.some(ext => f.toLowerCase() === `icon.${ext}`)) ||
+                        files.find(f => {
+                            const low = f.toLowerCase();
+                            return low !== mainFile.toLowerCase() &&
+                                   !low.endsWith('.p8.png') &&
+                                   ICON_EXTS.some(ext => low.endsWith(`.${ext}`));
+                        });
+
                     const iconUrl = iconFile
                         ? `${folderRaw}/${encodeURIComponent(iconFile)}`
-                        : `https://placehold.co/400x250/1e293b/38bdf8?text=${encodeURIComponent(title)}`;
+                        : `https://placehold.co/400x250/1e293b/38bdf8?text=${encodeURIComponent(identified.title)}`;
 
-                    const playable = detectPlayableFile(files);
-                    const encodedFile = encodeURIComponent(playable.file);
-                    const rawFileUrl = `${folderRaw}/${encodedFile}`;
-                    const pagesFileUrl = `${PAGES_BASE}/games/${encodeURIComponent(folder)}/${encodedFile}`;
+                    const isSingleFileDownload = files.length === 1 || identified.runtime !== 'html';
 
                     return {
                         id: folder,
                         folder,
                         files,
-                        title,
-                        description,
-                        author,
+                        ...identified,
+                        description: xmlMeta.description || 'No description available.',
+                        author: xmlMeta.author || 'Unknown',
                         iconUrl,
-                        playableFile: playable.file,
-                        fileType: playable.type,
-                        rawFileUrl,
-                        pagesFileUrl,
-                        repoUrl: `https://github.com/${CONFIG.owner}/${CONFIG.repo}/tree/${CONFIG.branch}/games/${encodeURIComponent(folder)}`
+                        downloadUrl: isSingleFileDownload ? identified.rawFileUrl : identified.repoUrl,
+                        isDirectDownload: isSingleFileDownload
                     };
                 }));
 
@@ -352,7 +443,7 @@
                 card.innerHTML = `
                     <div class="relative aspect-video bg-slate-800 overflow-hidden">
                         <img src="${game.iconUrl}" alt="${game.title}" class="w-full h-full object-cover" loading="lazy">
-                        <span class="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-xs text-sky-300 text-[10px] font-bold uppercase px-2 py-0.5 rounded border border-slate-700">${game.fileType}</span>
+                        <span class="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-xs text-sky-300 text-[10px] font-bold uppercase px-2 py-0.5 rounded border border-slate-700">${game.formatLabel}</span>
                         ${isFav ? '<span class="absolute top-2 right-2 text-amber-400 drop-shadow"><i class="fa-solid fa-star"></i></span>' : ''}
                     </div>
                     <div class="p-3 flex-1 flex flex-col justify-between">
@@ -377,8 +468,16 @@
             document.getElementById('detailAuthor').textContent = game.author;
             document.getElementById('detailDesc').textContent = game.description;
             document.getElementById('detailIcon').src = game.iconUrl;
-            document.getElementById('detailFormatBadge').textContent = game.fileType.toUpperCase();
-            document.getElementById('downloadBtn').href = game.repoUrl;
+            document.getElementById('detailFormatBadge').textContent = game.formatLabel;
+            document.getElementById('detailMainFile').textContent = game.mainFile;
+
+            const dlBtn = document.getElementById('downloadBtn');
+            dlBtn.href = game.downloadUrl || game.repoUrl;
+            if (game.isDirectDownload) {
+                dlBtn.setAttribute('download', game.mainFile);
+            } else {
+                dlBtn.removeAttribute('download');
+            }
 
             updateDetailButtons();
 
@@ -450,14 +549,13 @@
 
         function buildRuntimeHTML(game) {
             const url = game.rawFileUrl;
-            const ext = game.playableFile.split('.').pop().toLowerCase();
 
-            if (game.fileType === 'scratch') {
+            if (game.runtime === 'scratch') {
                 const embedUrl = `https://turbowarp.org/embed?project_url=${encodeURIComponent(url)}`;
                 return `<iframe src="${embedUrl}" class="w-full h-full border-0" allowfullscreen></iframe>`;
             }
 
-            if (game.fileType === 'flash') {
+            if (game.runtime === 'flash') {
                 return `
                     <!DOCTYPE html><html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;">
                     <script src="https://unpkg.com/@ruffle-rs/ruffle"><\/script>
@@ -472,8 +570,8 @@
                     <\/script></body></html>`;
             }
 
-            if (game.fileType === 'rom') {
-                const core = ROM_CORES[ext] || 'nes';
+            if (game.runtime === 'rom') {
+                const core = game.core || 'nes';
                 return `
                     <!DOCTYPE html><html><body style="margin:0;background:#000;height:100vh;">
                     <div style="width:100%;height:100%"><div id="game"></div></div>
@@ -487,7 +585,7 @@
                     </body></html>`;
             }
 
-            if (game.fileType === 'exe') {
+            if (game.runtime === 'dos') {
                 return `
                     <!DOCTYPE html><html><head>
                     <link rel="stylesheet" href="https://v8.js-dos.com/latest/js-dos.css">
@@ -502,7 +600,7 @@
                             const peOffset = bytes[0x3c] | (bytes[0x3d] << 8);
                             const isWin32 = bytes[peOffset] === 0x50 && bytes[peOffset + 1] === 0x45;
                             if (isWin32) {
-                                document.body.innerHTML = '<div style="margin:auto;text-align:center;max-width:460px;padding:24px;"><h2>Windows 32/64-bit Executable Detected</h2><p style="color:#94a3b8;">Modern Win32/DirectX .exe files cannot run natively in browser DOSBox. Download the executable to run on Windows.</p><a href="${url}" download style="display:inline-block;margin-top:12px;padding:10px 20px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">Download ${game.playableFile}</a></div>';
+                                document.body.innerHTML = '<div style="margin:auto;text-align:center;max-width:460px;padding:24px;"><h2>Windows 32/64-bit Executable Detected</h2><p style="color:#94a3b8;">Modern Win32/DirectX .exe files cannot run natively in browser DOSBox. Download ${game.mainFile} to run on Windows.</p><a href="${url}" download="${game.mainFile}" style="display:inline-block;margin-top:12px;padding:10px 20px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">Download ${game.mainFile}</a></div>';
                                 return;
                             }
                             Dos(document.getElementById("dos"), { url: "${url}" });
@@ -510,7 +608,7 @@
                     <\/script></body></html>`;
             }
 
-            if (game.fileType === 'python') {
+            if (game.runtime === 'python') {
                 return `
                     <!DOCTYPE html><html><body style="margin:0;background:#0f172a;color:#e2e8f0;font-family:monospace;padding:16px;">
                     <pre id="out">Loading Python (Pyodide)...</pre>
@@ -526,7 +624,7 @@
                     <\/script></body></html>`;
             }
 
-            if (game.fileType === 'lua') {
+            if (game.runtime === 'lua') {
                 return `
                     <!DOCTYPE html><html><body style="margin:0;background:#0f172a;color:#e2e8f0;font-family:monospace;padding:16px;">
                     <script src="https://cdn.jsdelivr.net/npm/fengari-web@0.1.4/dist/fengari-web.js"><\/script>
@@ -535,7 +633,7 @@
                     <\/script></body></html>`;
             }
 
-            if (game.fileType === 'js') {
+            if (game.runtime === 'javascript') {
                 return `
                     <!DOCTYPE html><html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;">
                     <canvas id="gameCanvas" width="800" height="600" style="max-width:100%;max-height:100%;"></canvas>
@@ -543,23 +641,30 @@
                     </body></html>`;
             }
 
-            return null;
+            return `
+                <!DOCTYPE html><html><body style="margin:0;background:#0b0f19;color:#f8fafc;font-family:sans-serif;height:100vh;display:flex;align-items:center;justify-content:center;">
+                <div style="text-align:center;max-width:440px;padding:24px;">
+                    <h2 style="margin:0 0 8px;">Unsupported Browser Format (${game.formatLabel})</h2>
+                    <p style="color:#94a3b8;font-size:14px;">Main file <strong>${game.mainFile}</strong> cannot run directly in the web player.</p>
+                    <a href="${url}" download="${game.mainFile}" style="display:inline-block;margin-top:14px;padding:10px 20px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">Download ${game.mainFile}</a>
+                </div>
+                </body></html>`;
         }
 
         function launchGame(game) {
             closeDetails();
             const overlay = document.getElementById('playerOverlay');
             const container = document.getElementById('playerContainer');
-            document.getElementById('playerTitle').textContent = game.title;
+            document.getElementById('playerTitle').textContent = `${game.title} (${game.mainFile})`;
             container.innerHTML = '';
 
-            if (game.fileType === 'html') {
+            if (game.runtime === 'html') {
                 const iframe = document.createElement('iframe');
                 iframe.src = game.pagesFileUrl;
                 iframe.className = 'w-full h-full border-0';
                 iframe.allowFullscreen = true;
                 container.appendChild(iframe);
-            } else if (game.fileType === 'scratch') {
+            } else if (game.runtime === 'scratch') {
                 container.innerHTML = buildRuntimeHTML(game);
             } else {
                 const srcdoc = buildRuntimeHTML(game);
@@ -634,7 +739,9 @@
             const filtered = allGames.filter(g =>
                 g.title.toLowerCase().includes(q) ||
                 g.author.toLowerCase().includes(q) ||
-                g.fileType.toLowerCase().includes(q)
+                g.formatLabel.toLowerCase().includes(q) ||
+                g.runtime.toLowerCase().includes(q) ||
+                g.mainFile.toLowerCase().includes(q)
             );
             renderGames(filtered);
         });
