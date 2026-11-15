@@ -5,7 +5,8 @@
       "AngryBirds.exe",
       "AppUpWrapper.dll",
       "config.lua",
-      "data"
+      "data",
+      "info.xml"
     ]
   },
   {
