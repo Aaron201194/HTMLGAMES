@@ -1,5 +1,13 @@
 [
   {
+    "folder": "angrybird",
+    "files": [
+      "AngryBirds.exe",
+      "AppUpWrapper.dll",
+      "config.lua"
+    ]
+  },
+  {
     "folder": "badpig",
     "files": [
       "g.html",
