@@ -2,10 +2,10 @@
   {
     "folder": "angrybird",
     "files": [
-      "AngryBirds.exe",
       "AppUpWrapper.dll",
       "config.lua",
       "data",
+      "g.exe",
       "info.xml"
     ]
   },
