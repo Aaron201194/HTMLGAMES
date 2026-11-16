@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <game>
-    <name>Angr Birds</name>
+    <name>Angry Birds</name>
     <desc>Launch birds from your slingshot to defeat the pigs and get your eggs back!</desc>
     <auth>Rovio</auth>
-    <main>AngrBirds.exe<main>
+    <file>AngrBirds.exe<file>
 </game>{\rtf1}
