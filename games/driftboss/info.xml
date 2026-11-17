@@ -3,4 +3,5 @@
     <name>Drift Boss</name>
     <desc>Drift and collect coins as you reach a new highscore!</desc>
     <auth>mathplayground.com</auth>
+    <load>g.html<load>
 </game>{\rtf1}
