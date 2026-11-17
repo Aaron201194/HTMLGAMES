@@ -2,9 +2,7 @@
   {
     "folder": "angrybird",
     "files": [
-      "AppUpWrapper.dll",
       "config.lua",
-      "data",
       "g.exe",
       "info.xml"
     ]
