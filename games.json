@@ -38,6 +38,15 @@
     ]
   },
   {
+    "folder": "driftboss",
+    "files": [
+      "game.css",
+      "game.js",
+      "index.html",
+      "media"
+    ]
+  },
+  {
     "folder": "duck1",
     "files": [
       "g.html"
