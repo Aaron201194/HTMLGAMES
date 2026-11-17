@@ -42,6 +42,7 @@
     "files": [
       "game.css",
       "game.js",
+      "icon.png",
       "index.html",
       "media"
     ]
