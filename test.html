@@ -797,6 +797,8 @@ async function launchZipGame(game, container) {
                 iframe.className = 'w-full h-full border-0';
                 iframe.allowFullscreen = true;
                 container.appendChild(iframe);
+            } else if (game.fileType === 'zip') {
+                launchZipGame(game, container);
             } else if (game.fileType === 'scratch') {
                 container.innerHTML = buildRuntimeHTML(game);
             } else {
