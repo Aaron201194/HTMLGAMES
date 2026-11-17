@@ -2,8 +2,6 @@
   {
     "folder": "angrybird",
     "files": [
-      "config.lua",
-      "g.exe",
       "info.xml"
     ]
   },
