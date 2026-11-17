@@ -25,8 +25,12 @@ jobs:
               for folder in sorted(os.listdir(games_dir)):
                   full_path = os.path.join(games_dir, folder)
                   if os.path.isdir(full_path):
-                      files = sorted(os.listdir(full_path))
-                      result.append({"folder": folder, "files": files})
+                      files = []
+                      for root, _, filenames in os.walk(full_path):
+                          for fname in sorted(filenames):
+                              rel = os.path.relpath(os.path.join(root, fname), full_path).replace("\\", "/")
+                              files.append(rel)
+                      result.append({"folder": folder, "files": sorted(files)})
           with open("games.json", "w") as f:
               json.dump(result, f, indent=2)
           '
