@@ -921,8 +921,12 @@ async function launchZipGame(game, container) {
             document.getElementById('playerTitle').textContent = game.title;
             container.innerHTML = '';
 
-            if (game.fileType === 'html') {
-    launchFolderHtmlGame(game, container);
+      if (game.fileType === 'html') {
+    const iframe = document.createElement('iframe');
+    iframe.src = game.pagesFileUrl;
+    iframe.className = 'w-full h-full border-0';
+    iframe.allowFullscreen = true;
+    container.appendChild(iframe);
 } else if (game.fileType === 'zip') {
     launchZipGame(game, container);
 } else if (game.fileType === 'scratch') {
