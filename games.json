@@ -12,6 +12,7 @@
       "info.xml",
       "main.js",
       "manifest",
+      "node_moludes",
       "package-lock.json",
       "package.json",
       "preload.js"
