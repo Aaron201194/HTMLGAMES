@@ -514,25 +514,70 @@
             }
 
             if (game.fileType === 'exe') {
+                const folderRaw = `${RAW_BASE}/games/${encodeURIComponent(game.folder)}`;
+                const filesJson = JSON.stringify(game.files);
+                const exeTarget = game.playableFile.replace(/\//g, '\\');
+
                 return `
                     <!DOCTYPE html><html><head>
-                    <base href="${baseDir}">
                     <link rel="stylesheet" href="https://v8.js-dos.com/latest/js-dos.css">
                     <script src="https://v8.js-dos.com/latest/js-dos.js"><\/script>
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"><\/script>
                     </head><body style="margin:0;background:#000;color:#fff;font-family:sans-serif;height:100vh;display:flex;flex-direction:column;">
-                    <div id="dos" style="width:100%;height:100%;"></div>
+                    <div id="status" style="margin:auto;text-align:center;color:#94a3b8;">Checking executable & bundling game files...</div>
+                    <div id="dos" style="width:100%;height:100%;display:none;"></div>
                     <script>
                         (async () => {
-                            const res = await fetch("${url}");
-                            const buf = await res.arrayBuffer();
-                            const bytes = new Uint8Array(buf);
-                            const peOffset = bytes[0x3c] | (bytes[0x3d] << 8);
-                            const isWin32 = bytes[peOffset] === 0x50 && bytes[peOffset + 1] === 0x45;
-                            if (isWin32) {
-                                document.body.innerHTML = '<div style="margin:auto;text-align:center;max-width:460px;padding:24px;"><h2>Windows 32/64-bit Executable Detected</h2><p style="color:#94a3b8;">Modern Win32/DirectX .exe files cannot run natively in browser DOSBox. Download the executable to run on Windows.</p><a href="${url}" download style="display:inline-block;margin-top:12px;padding:10px 20px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">Download ${game.playableFile}</a></div>';
-                                return;
+                            try {
+                                const res = await fetch("${url}");
+                                if (!res.ok) throw new Error("Failed to fetch ${game.playableFile}");
+                                const buf = await res.arrayBuffer();
+                                const bytes = new Uint8Array(buf);
+
+                                // Check for Windows PE header (Win32/Win64)
+                                const peOffset = bytes[0x3c] | (bytes[0x3d] << 8) | (bytes[0x3e] << 16) | (bytes[0x3f] << 24);
+                                const isWin32 = peOffset > 0 && peOffset < bytes.length - 4 &&
+                                    bytes[peOffset] === 0x50 && bytes[peOffset + 1] === 0x45 &&
+                                    bytes[peOffset + 2] === 0x00 && bytes[peOffset + 3] === 0x00;
+
+                                if (isWin32) {
+                                    document.body.innerHTML = '<div style="margin:auto;text-align:center;max-width:460px;padding:24px;"><h2>Windows 32/64-bit Executable Detected</h2><p style="color:#94a3b8;">Modern Win32/DirectX .exe files cannot run natively in browser DOSBox. Download the game folder to run on Windows.</p><a href="${game.repoUrl}" target="_blank" style="display:inline-block;margin-top:12px;padding:10px 20px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">Open Game Folder</a></div>';
+                                    return;
+                                }
+
+                                // Bundle all game files into an in-memory .jsdos zip
+                                const zip = new JSZip();
+                                const allFiles = ${filesJson};
+                                const encodeSegs = p => p.split('/').map(encodeURIComponent).join('/');
+
+                                await Promise.all(allFiles.map(async (f) => {
+                                    const low = f.toLowerCase();
+                                    if (low === 'info.xml' || low.startsWith('icon.')) return;
+                                    const r = await fetch("${folderRaw}/" + encodeSegs(f));
+                                    if (r.ok) zip.file(f, await r.arrayBuffer());
+                                }));
+
+                                const conf = [
+                                    "[sdl]",
+                                    "autolock=true",
+                                    "[autoexec]",
+                                    "@echo off",
+                                    "mount c .",
+                                    "c:",
+                                    "${exeTarget}"
+                                ].join("\\n");
+
+                                zip.file(".jsdos/dosbox.conf", conf);
+
+                                const blob = await zip.generateAsync({ type: "blob" });
+                                const bundleUrl = URL.createObjectURL(blob);
+
+                                document.getElementById("status").style.display = "none";
+                                document.getElementById("dos").style.display = "block";
+                                Dos(document.getElementById("dos"), { url: bundleUrl });
+                            } catch (err) {
+                                document.getElementById("status").innerHTML = '<p style="color:#f87171;">Error: ' + err.message + '</p>';
                             }
-                            Dos(document.getElementById("dos"), { url: "${url}" });
                         })();
                     <\/script></body></html>`;
             }
