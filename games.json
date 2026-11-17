@@ -1,41 +1,5 @@
 [
   {
-    "folder": "angrybird",
-    "files": [
-      "AppCacheInstaller.html",
-      "core-util-is",
-      "css",
-      "debug",
-      "decompress-response",
-      "defer-to-connect",
-      "define-properties",
-      "detect-node",
-      "duplexer3",
-      "electron",
-      "encodeurl",
-      "end-of-stream",
-      "env-paths",
-      "es6-error",
-      "escape-string-regexp",
-      "extract-zip",
-      "favicon.ico",
-      "fd-slicer",
-      "fowl",
-      "fs-extra",
-      "get-stream",
-      "images",
-      "index-original.html",
-      "index.html",
-      "info.xml",
-      "main.js",
-      "manifest",
-      "node_moludes",
-      "package-lock.json",
-      "package.json",
-      "preload.js"
-    ]
-  },
-  {
     "folder": "badpig",
     "files": [
       "g.html",
