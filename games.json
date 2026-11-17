@@ -2,7 +2,19 @@
   {
     "folder": "angrybird",
     "files": [
-      "info.xml"
+      "AppCacheInstaller.html",
+      "css",
+      "favicon.ico",
+      "fowl",
+      "images",
+      "index-original.html",
+      "index.html",
+      "info.xml",
+      "main.js",
+      "manifest",
+      "package-lock.json",
+      "package.json",
+      "preload.js"
     ]
   },
   {
