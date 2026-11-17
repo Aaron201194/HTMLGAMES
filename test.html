@@ -639,6 +639,136 @@ function getMime(filename) {
     const ext = filename.split('.').pop().toLowerCase();
     return MIME_TYPES[ext] || 'application/octet-stream';
 }
+        async function launchFolderHtmlGame(game, container) {
+    container.innerHTML = `
+        <div class="w-full h-full flex flex-col items-center justify-center text-slate-300 gap-3">
+            <i class="fa-solid fa-folder-open fa-bounce text-4xl text-sky-400"></i>
+            <p id="loadProgressText" class="text-sm font-semibold">Loading game files...</p>
+        </div>`;
+
+    try {
+        const folderRaw = `${RAW_BASE}/games/${encodeURIComponent(game.folder)}`;
+        const progressEl = document.getElementById('loadProgressText');
+
+        // Grab everything in the folder except info.xml and icon.*
+        const gameFiles = game.files.filter(f => {
+            const base = f.split('/').pop().toLowerCase();
+            if (base === 'info.xml') return false;
+            if (ICON_EXTS.some(ext => base === `icon.${ext}`)) return false;
+            return true;
+        });
+
+        let loadedCount = 0;
+        const blobMap = {};
+        const cssEntries = [];
+
+        await Promise.all(gameFiles.map(async (filePath) => {
+            const res = await fetch(`${folderRaw}/${encodePath(filePath)}`);
+            if (!res.ok) return;
+
+            const mime = getMime(filePath);
+            if (mime === 'text/css') {
+                cssEntries.push({ filePath, text: await res.text() });
+            } else {
+                const buf = await res.arrayBuffer();
+                blobMap[filePath] = URL.createObjectURL(new Blob([buf], { type: mime }));
+            }
+
+            loadedCount++;
+            if (progressEl) {
+                progressEl.textContent = `Loading game files (${loadedCount}/${gameFiles.length})...`;
+            }
+        }));
+
+        // Rewrite url(...) inside CSS files after all assets have Blob URLs
+        for (const { filePath, text } of cssEntries) {
+            const cssDir = filePath.includes('/') ? filePath.substring(0, filePath.lastIndexOf('/')) : '';
+            const rewrittenCss = text.replace(/url\((['"]?)([^)'"]+)\1\)/g, (m, q, ref) => {
+                const resolved = resolveZipPath(cssDir, ref);
+                return resolved && blobMap[resolved] ? `url(${q}${blobMap[resolved]}${q})` : m;
+            });
+            blobMap[filePath] = URL.createObjectURL(new Blob([rewrittenCss], { type: 'text/css' }));
+        }
+
+        // Fetch entry HTML and rewrite all relative paths + runtime requests to the preloaded Blob URLs
+        const entryRes = await fetch(game.rawFileUrl);
+        if (!entryRes.ok) throw new Error(`Failed to fetch ${game.playableFile} (${entryRes.status})`);
+        let html = await entryRes.text();
+        const entryDir = game.playableFile.includes('/')
+            ? game.playableFile.substring(0, game.playableFile.lastIndexOf('/'))
+            : '';
+
+        html = html.replace(/\b(src|href)=(["'])([^"']+)\2/gi, (match, attr, quote, val) => {
+            const resolved = resolveZipPath(entryDir, val);
+            return resolved && blobMap[resolved] ? `${attr}=${quote}${blobMap[resolved]}${quote}` : match;
+        });
+
+        const interceptor = `<script>
+            (function() {
+                const BLOB_MAP = ${JSON.stringify(blobMap)};
+                const BASE_DIR = ${JSON.stringify(entryDir)};
+                function mapUrl(u) {
+                    if (typeof u !== 'string') return u;
+                    if (/^(https?:|data:|blob:|javascript:|#)/i.test(u)) return u;
+                    const clean = u.split('?')[0].split('#')[0].replace(/^\\.\\//, '');
+                    const stack = BASE_DIR ? BASE_DIR.split('/').filter(Boolean) : [];
+                    for (const p of clean.split('/')) {
+                        if (p === '.' || p === '') continue;
+                        if (p === '..') stack.pop();
+                        else stack.push(p);
+                    }
+                    const key = stack.join('/');
+                    return BLOB_MAP[key] || BLOB_MAP[clean] || u;
+                }
+                const origFetch = window.fetch;
+                window.fetch = function(input, init) {
+                    if (typeof input === 'string') input = mapUrl(input);
+                    else if (input instanceof Request) input = new Request(mapUrl(input.url), input);
+                    return origFetch.call(this, input, init);
+                };
+                const origOpen = XMLHttpRequest.prototype.open;
+                XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+                    return origOpen.call(this, method, mapUrl(url), ...rest);
+                };
+                const OrigAudio = window.Audio;
+                window.Audio = function(src) {
+                    return new OrigAudio(src ? mapUrl(src) : undefined);
+                };
+                const origSetAttr = Element.prototype.setAttribute;
+                Element.prototype.setAttribute = function(name, value) {
+                    if ((name === 'src' || name === 'href') && typeof value === 'string') {
+                        value = mapUrl(value);
+                    }
+                    return origSetAttr.call(this, name, value);
+                };
+                for (const Proto of [HTMLImageElement, HTMLScriptElement, HTMLAudioElement, HTMLSourceElement, HTMLLinkElement]) {
+                    const prop = Proto === HTMLLinkElement ? 'href' : 'src';
+                    const desc = Object.getOwnPropertyDescriptor(Proto.prototype, prop);
+                    if (desc && desc.set) {
+                        Object.defineProperty(Proto.prototype, prop, {
+                            get: desc.get,
+                            set(v) { desc.set.call(this, mapUrl(v)); }
+                        });
+                    }
+                }
+            })();
+        <\/script>`;
+
+        html = /<head[^>]*>/i.test(html)
+            ? html.replace(/<head[^>]*>/i, m => m + interceptor)
+            : interceptor + html;
+
+        const pageBlobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+        const iframe = document.createElement('iframe');
+        iframe.src = pageBlobUrl;
+        iframe.className = 'w-full h-full border-0';
+        iframe.allowFullscreen = true;
+        container.innerHTML = '';
+        container.appendChild(iframe);
+    } catch (err) {
+        container.innerHTML = `<div class="w-full h-full flex items-center justify-center text-red-400 p-6 text-center"><p>Failed to load game: ${err.message}</p></div>`;
+    }
+}
 
 function resolveZipPath(baseDir, relPath) {
     if (/^(https?:|data:|blob:|mailto:|#|\/\/)/i.test(relPath)) return null;
@@ -792,16 +922,12 @@ async function launchZipGame(game, container) {
             container.innerHTML = '';
 
             if (game.fileType === 'html') {
-                const iframe = document.createElement('iframe');
-                iframe.src = game.pagesFileUrl;
-                iframe.className = 'w-full h-full border-0';
-                iframe.allowFullscreen = true;
-                container.appendChild(iframe);
-            } else if (game.fileType === 'zip') {
-                launchZipGame(game, container);
-            } else if (game.fileType === 'scratch') {
-                container.innerHTML = buildRuntimeHTML(game);
-            } else {
+    launchFolderHtmlGame(game, container);
+} else if (game.fileType === 'zip') {
+    launchZipGame(game, container);
+} else if (game.fileType === 'scratch') {
+    container.innerHTML = buildRuntimeHTML(game);
+} else {
                 const srcdoc = buildRuntimeHTML(game);
                 const iframe = document.createElement('iframe');
                 iframe.srcdoc = srcdoc;
