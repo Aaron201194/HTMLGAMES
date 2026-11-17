@@ -6,6 +6,7 @@
     <title>HTML Games</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body {
             background-color: #0b0f19;
@@ -215,22 +216,23 @@
             banner.classList.remove('hidden');
         }
 
-        function classifyFileType(filePath) {
-            const low = filePath.split('/').pop().toLowerCase();
+function classifyFileType(filePath) {
+    const low = filePath.split('/').pop().toLowerCase();
 
-            if (low.endsWith('.html') || low.endsWith('.htm')) return 'html';
-            if (low.endsWith('.sb3') || low.endsWith('.sb2')) return 'scratch';
-            if (low.endsWith('.swf')) return 'flash';
-            if (low.endsWith('.p8.png') || low.endsWith('.p8')) return 'pico8';
-            if (low.endsWith('.love')) return 'love2d';
-            if (low.endsWith('.py')) return 'python';
-            if (low.endsWith('.lua')) return 'lua';
-            if (low.endsWith('.exe') || low.endsWith('.com') || low.endsWith('.bat')) return 'exe';
-            if (Object.keys(ROM_CORES).some(ext => low.endsWith('.' + ext))) return 'rom';
-            if (low.endsWith('.js')) return 'js';
+    if (low.endsWith('.zip')) return 'zip';
+    if (low.endsWith('.html') || low.endsWith('.htm')) return 'html';
+    if (low.endsWith('.sb3') || low.endsWith('.sb2')) return 'scratch';
+    if (low.endsWith('.swf')) return 'flash';
+    if (low.endsWith('.p8.png') || low.endsWith('.p8')) return 'pico8';
+    if (low.endsWith('.love')) return 'love2d';
+    if (low.endsWith('.py')) return 'python';
+    if (low.endsWith('.lua')) return 'lua';
+    if (low.endsWith('.exe') || low.endsWith('.com') || low.endsWith('.bat')) return 'exe';
+    if (Object.keys(ROM_CORES).some(ext => low.endsWith('.' + ext))) return 'rom';
+    if (low.endsWith('.js')) return 'js';
 
-            return 'html';
-        }
+    return 'html';
+}
 
         function detectPlayableFile(files, loadOverride = null) {
             // 1. Check <load> override from info.xml first
@@ -621,6 +623,167 @@
             return null;
         }
 
+        const MIME_TYPES = {
+    html: 'text/html', htm: 'text/html',
+    js: 'application/javascript', mjs: 'application/javascript',
+    css: 'text/css', json: 'application/json', xml: 'application/xml',
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+    gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', ico: 'image/x-icon',
+    mp3: 'audio/mpeg', ogg: 'audio/ogg', wav: 'audio/wav', m4a: 'audio/mp4',
+    mp4: 'video/mp4', webm: 'video/webm',
+    wasm: 'application/wasm', data: 'application/octet-stream',
+    woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf'
+};
+
+function getMime(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    return MIME_TYPES[ext] || 'application/octet-stream';
+}
+
+function resolveZipPath(baseDir, relPath) {
+    if (/^(https?:|data:|blob:|mailto:|#|\/\/)/i.test(relPath)) return null;
+    const clean = relPath.split('?')[0].split('#')[0];
+    const stack = baseDir ? baseDir.split('/').filter(Boolean) : [];
+    for (const part of clean.split('/')) {
+        if (part === '.' || part === '') continue;
+        if (part === '..') stack.pop();
+        else stack.push(part);
+    }
+    return stack.join('/');
+}
+
+async function launchZipGame(game, container) {
+    container.innerHTML = `
+        <div class="w-full h-full flex flex-col items-center justify-center text-slate-300 gap-3">
+            <i class="fa-solid fa-file-zipper fa-bounce text-4xl text-sky-400"></i>
+            <p class="text-sm font-semibold">Extracting archive...</p>
+        </div>`;
+
+    try {
+        const res = await fetch(game.rawFileUrl);
+        if (!res.ok) throw new Error(`Failed to fetch ${game.playableFile} (${res.status})`);
+        const zip = await JSZip.loadAsync(await res.arrayBuffer());
+
+        // Collect all non-directory entries
+        const entries = Object.values(zip.files).filter(f => !f.dir && !f.name.startsWith('__MACOSX/'));
+        const allPaths = entries.map(e => e.name);
+
+        // Find entry file: g.html > index.html > game.html > any .html > .exe/.swf/.sb3/ROM
+        const entryPick = detectPlayableFile(allPaths);
+        const entryFile = zip.file(entryPick.file);
+        if (!entryFile) throw new Error('No playable entry file found inside zip.');
+
+        // If the zip contains a DOS .exe, pass the zip directly to js-dos
+        if (entryPick.type === 'exe') {
+            const dosZip = new JSZip();
+            for (const entry of entries) {
+                dosZip.file(entry.name, await entry.async('arraybuffer'));
+            }
+            const exeWinPath = entryPick.file.replace(/\//g, '\\');
+            dosZip.file('.jsdos/dosbox.conf', `[sdl]\nautolock=true\n[autoexec]\n@echo off\nmount c .\nc:\n${exeWinPath}`);
+            const bundleUrl = URL.createObjectURL(await dosZip.generateAsync({ type: 'blob' }));
+            container.innerHTML = `<iframe srcdoc='<!DOCTYPE html><html><head><link rel="stylesheet" href="https://v8.js-dos.com/latest/js-dos.css"><script src="https://v8.js-dos.com/latest/js-dos.js"><\/script></head><body style="margin:0;background:#000;height:100vh;"><div id="dos" style="width:100%;height:100%;"></div><script>Dos(document.getElementById("dos"),{url:"${bundleUrl}"});<\/script></body></html>' class="w-full h-full border-0" allowfullscreen></iframe>`;
+            return;
+        }
+
+        // Build Blob URL map for all extracted files
+        const blobMap = {};
+        await Promise.all(entries.map(async (entry) => {
+            const mime = getMime(entry.name);
+            if (mime === 'text/css') {
+                // Rewrite url(...) inside CSS files
+                let css = await entry.async('text');
+                const cssDir = entry.name.includes('/') ? entry.name.substring(0, entry.name.lastIndexOf('/')) : '';
+                css = css.replace(/url\((['"]?)([^)'"]+)\1\)/g, (m, q, ref) => {
+                    const resolved = resolveZipPath(cssDir, ref);
+                    return resolved && blobMap[resolved] ? `url(${q}${blobMap[resolved]}${q})` : m;
+                });
+                blobMap[entry.name] = URL.createObjectURL(new Blob([css], { type: mime }));
+            } else {
+                const buf = await entry.async('arraybuffer');
+                blobMap[entry.name] = URL.createObjectURL(new Blob([buf], { type: mime }));
+            }
+        }));
+
+        // If entry is HTML, rewrite asset attributes + intercept dynamic fetch/XHR/Image/Audio/script src
+        let html = await entryFile.async('text');
+        const entryDir = entryPick.file.includes('/') ? entryPick.file.substring(0, entryPick.file.lastIndexOf('/')) : '';
+
+        // Replace static src="..." and href="..." attributes in HTML
+        html = html.replace(/\b(src|href)=(["'])([^"']+)\2/gi, (match, attr, quote, val) => {
+            const resolved = resolveZipPath(entryDir, val);
+            if (resolved && blobMap[resolved]) {
+                return `${attr}=${quote}${blobMap[resolved]}${quote}`;
+            }
+            return match;
+        });
+
+        // Inject runtime interceptor so dynamic JS asset loads (images, audio, JSON, XHR, fetch) resolve to Blob URLs
+        const interceptor = `<script>
+            (function() {
+                const BLOB_MAP = ${JSON.stringify(blobMap)};
+                const BASE_DIR = ${JSON.stringify(entryDir)};
+                function mapUrl(u) {
+                    if (typeof u !== 'string') return u;
+                    if (/^(https?:|data:|blob:|javascript:|#)/i.test(u)) return u;
+                    const clean = u.split('?')[0].split('#')[0];
+                    const stack = BASE_DIR ? BASE_DIR.split('/').filter(Boolean) : [];
+                    for (const p of clean.split('/')) {
+                        if (p === '.' || p === '') continue;
+                        if (p === '..') stack.pop();
+                        else stack.push(p);
+                    }
+                    const key = stack.join('/');
+                    return BLOB_MAP[key] || BLOB_MAP[clean.replace(/^\\.\\//, '')] || u;
+                }
+                const origFetch = window.fetch;
+                window.fetch = function(input, init) {
+                    if (typeof input === 'string') input = mapUrl(input);
+                    else if (input instanceof Request) input = new Request(mapUrl(input.url), input);
+                    return origFetch.call(this, input, init);
+                };
+                const origOpen = XMLHttpRequest.prototype.open;
+                XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+                    return origOpen.call(this, method, mapUrl(url), ...rest);
+                };
+                const origSetAttr = Element.prototype.setAttribute;
+                Element.prototype.setAttribute = function(name, value) {
+                    if ((name === 'src' || name === 'href') && typeof value === 'string') {
+                        value = mapUrl(value);
+                    }
+                    return origSetAttr.call(this, name, value);
+                };
+                for (const Proto of [HTMLImageElement, HTMLScriptElement, HTMLAudioElement, HTMLSourceElement, HTMLLinkElement]) {
+                    const prop = Proto === HTMLLinkElement ? 'href' : 'src';
+                    const desc = Object.getOwnPropertyDescriptor(Proto.prototype, prop);
+                    if (desc && desc.set) {
+                        Object.defineProperty(Proto.prototype, prop, {
+                            get: desc.get,
+                            set(v) { desc.set.call(this, mapUrl(v)); }
+                        });
+                    }
+                }
+            })();
+        <\/script>`;
+
+        if (/<head[^>]*>/i.test(html)) {
+            html = html.replace(/<head[^>]*>/i, m => m + interceptor);
+        } else {
+            html = interceptor + html;
+        }
+
+        const pageBlobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+        const iframe = document.createElement('iframe');
+        iframe.src = pageBlobUrl;
+        iframe.className = 'w-full h-full border-0';
+        iframe.allowFullscreen = true;
+        container.innerHTML = '';
+        container.appendChild(iframe);
+    } catch (err) {
+        container.innerHTML = `<div class="w-full h-full flex items-center justify-center text-red-400 p-6 text-center"><p>Failed to load zip game: ${err.message}</p></div>`;
+    }
+}
+        
         function launchGame(game) {
             closeDetails();
             const overlay = document.getElementById('playerOverlay');
