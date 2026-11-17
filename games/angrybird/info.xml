@@ -3,5 +3,5 @@
     <name>Angry Birds</name>
     <desc>Launch birds from your slingshot to defeat the pigs and get your eggs back!</desc>
     <auth>Rovio</auth>
-    <file>AngrBirds.exe<file>
+    <load>g.exe<load>
 </game>{\rtf1}
