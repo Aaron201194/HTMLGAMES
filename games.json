@@ -135,6 +135,12 @@
     ]
   },
   {
+    "folder": "megaman",
+    "files": [
+      "g.nes"
+    ]
+  },
+  {
     "folder": "papermc",
     "files": [
       "g.sb3",
