@@ -121,6 +121,12 @@
     ]
   },
   {
+    "folder": "duckhunt",
+    "files": [
+      "g.nes"
+    ]
+  },
+  {
     "folder": "ducklifebattle",
     "files": [
       "g.html",
@@ -138,6 +144,12 @@
     "folder": "megaman",
     "files": [
       "g.nes"
+    ]
+  },
+  {
+    "folder": "mk64",
+    "files": [
+      "g.z64"
     ]
   },
   {
